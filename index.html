@@ -1,0 +1,660 @@
+<html>
+  <head>
+<base href="https://radio-player-demo.com/">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Radio Player Arabe Amélioré avec Support Multi-format</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&display=swap" rel="stylesheet">
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+<style>
+  body {
+    font-family: 'Cairo', sans-serif;
+    direction: rtl;
+  }
+  .header {
+    position: fixed;
+    top: 0;
+    width: 100%;
+    z-index: 1000;
+    background-color: #f8f9fa;
+  }
+  .audio-player {
+    position: fixed;
+    bottom: 0;
+    width: 100%;
+    background-color: #f8f9fa;
+    padding: 10px;
+    z-index: 1000;
+  }
+  .playlist {
+    height: calc(100vh - 200px);
+    overflow-y: auto;
+    margin-top: 80px;
+    margin-bottom: 120px;
+    padding-right: 10px; /* Add some padding for the scrollbar */
+  }
+  .playlist::-webkit-scrollbar {
+    width: 8px;
+  }
+  .playlist::-webkit-scrollbar-track {
+    background: #f1f1f1;
+  }
+  .playlist::-webkit-scrollbar-thumb {
+    background: #888;
+    border-radius: 4px;
+  }
+  .playlist::-webkit-scrollbar-thumb:hover {
+    background: #555;
+  }
+  .equalizer {
+    display: inline-block;
+    height: 20px;
+    width: 20px;
+  }
+  .equalizer .bar {
+    background: #333;
+    bottom: 1px;
+    height: 3px;
+    position: absolute;
+    width: 3px;
+    animation: sound 0ms -800ms linear infinite alternate;
+  }
+  @keyframes sound {
+    0% { height: 3px; }
+    100% { height: 15px; }
+  }
+  .station-item {
+    cursor: pointer;
+    transition: background-color 0.3s;
+  }
+  .station-item:hover {
+    background-color: #f0f0f0;
+  }
+  .active-station {
+    background-color: #e9ecef;
+  }
+</style>
+</head>
+<body>
+  <header class="header">
+    <nav class="navbar navbar-light bg-light">
+      <div class="container-fluid">
+        <a class="navbar-brand" href="#">
+          <img src="logo.svg" alt="شعار الراديو" width="30" height="24" class="d-inline-block align-text-top">
+          راديو عربي متعدد التنسيقات
+        </a>
+      </div>
+    </nav>
+  </header>
+
+  <main class="container">
+    <div class="row">
+      <div class="col-md-8">
+        <div class="playlist">
+          <h2 class="mt-4">قائمة التشغيل</h2>
+          <ul class="list-group" id="playlist">
+            <!-- سيتم ملء هذا بواسطة JavaScript -->
+          </ul>
+        </div>
+      </div>
+      <div class="col-md-4">
+        <h2 class="mt-4">البحث والتصفية</h2>
+        <form id="searchFilterForm">
+          <div class="mb-3">
+            <input type="text" class="form-control" id="searchName" placeholder="اسم المحطة">
+          </div>
+          <div class="mb-3">
+            <select class="form-select" id="filterGenre">
+              <option value="">جميع الأنواع</option>
+            </select>
+          </div>
+          <div class="mb-3">
+            <select class="form-select" id="filterCountry">
+              <option value="">جميع البلدان</option>
+            </select>
+          </div>
+          <div class="mb-3">
+            <select class="form-select" id="filterFormat">
+              <option value="">جميع التنسيقات</option>
+            </select>
+          </div>
+          <button type="submit" class="btn btn-primary">بحث وتصفية</button>
+          <button type="button" class="btn btn-secondary" id="resetFilters">إعادة تعيين</button>
+        </form>
+      </div>
+    </div>
+  </main>
+
+  <footer class="audio-player">
+    <div class="container">
+      <div class="row align-items-center">
+        <div class="col-md-4">
+          <img id="stationLogo" src="default-logo.svg" alt="شعار المحطة" width="30" height="30" class="me-2">
+          <span id="nowPlaying">اختر محطة</span>
+        </div>
+        <div class="col-md-6">
+          <audio id="audioPlayer"></audio>
+          <button id="playPauseBtn" class="btn btn-primary"><i class="fas fa-play"></i></button>
+          <button id="stopBtn" class="btn btn-secondary"><i class="fas fa-stop"></i></button>
+          <button id="muteBtn" class="btn btn-warning"><i class="fas fa-volume-mute"></i></button>
+          <div class="equalizer">
+            <span class="bar"></span>
+            <span class="bar"></span>
+            <span class="bar"></span>
+            <span class="bar"></span>
+          </div>
+        </div>
+        <div class="col-md-2">
+          <input type="range" class="form-range" id="volumeControl" min="0" max="1" step="0.1" value="1">
+        </div>
+      </div>
+    </div>
+  </footer>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+  <script>
+    // قائمة المحطات الإذاعية مع إضافة تنسيقات مختلفة
+    const stations = [
+    {name:"إذاعة الشرق",genre:" إذاعات أحبار إقتصادية",country:"السعودية",logo:"https://cdn.onlineradiobox.com/img/l/6/125376.v6.png",url:"https://svs.itworkscdn.net/asharqradioalive/asharqradioa/playlist.m3u8",format:"m3u8"},
+{name:"إذاعة حسنى",genre:" إذاعات عامة",country:"الأردن",logo:"https://cdn.onlineradiobox.com/img/l/0/95730.v11.png",url:"http://s2.voscast.com:10444/stream",format:"mp3"},
+{name:"إذاعة حياة",genre:" إذاعات عامة",country:"الأردن",logo:"https://static.mytuner.mobi/media/tvos_radios/wtrdcrkhbm93.jpg",url:"https://dc1.serverse.com/proxy/kjxwtpdt/stream",format:"mp3"},
+{name:"إذاعة الشارقة",genre:" إذاعات عامة",country:"الإمارات العربية",logo:"https://cdn.onlineradiobox.com/img/l/0/18910.v4.png",url:"https://l3.itworkscdn.net/smcradiolive/smcradiolive/icecast.audio",format:"mp3"},
+{name:"إذاعة العربية",genre:"إذاعات إخبارية",country:"الإمارات العربية",logo:"https://cdn.onlineradiobox.com/img/l/7/100397.v3.png",url:"https://fm.alarabiya.net/fm/myStream/chunklist_w1173383407.m3u8",format:"m3u8"},
+{name:"إذاعــة الأخــبــار المـــغربــيــة",genre:"إذاعات إخبارية",country:"المغرب",logo:"https://www.rimradio.ma/sites/all/themes/rim/logo.png",url:"https://streaming.rimradio.ma/live",format:"mp3"},
+{name:"إذاعة مونتي كارلو",genre:"إذاعات إخبارية",country:"دولية",logo:"https://cdn.onlineradiobox.com/img/l/8/31898.v4.png",url:"https://montecarlodoualiya128k.ice.infomaniak.ch/mc-doualiya.mp3",format:"mp3"},
+{name:"إذاعة سكاي نيوز عربية",genre:"إذاعات إخبارية",country:"دولية",logo:"https://cdn.onlineradiobox.com/img/l/8/18748.v1.png",url:"https://radio.skynewsarabia.com/stream/radio/skynewsarabia",format:"mp3"},
+{name:"Sputnik Arabic (عربي) live",genre:"إذاعات إخبارية",country:"روسيا",logo:"https://static2.mytuner.mobi/media/tvos_radios/efwtmkszmacf.png",url:"https://icecast-rian.cdnvideo.ru/voicearb",format:"mp3"},
+{name:"إذاعة الجزيرة",genre:"إذاعات إخبارية",country:"قطر",logo:"https://cdn.onlineradiobox.com/img/l/2/41362.v8.png",url:"https://live-hls-audio-web-aja.getaj.net/VOICE-AJA/index.m3u8",format:"m3u8"},
+{name:"إذاعة العربي",genre:"إذاعات إخبارية",country:"قطر",logo:"https://cdn.onlineradiobox.com/img/l/5/138305.v1.png",url:"https://l3.itworkscdn.net/alarabyradiolive/alarabyradio_audio/icecast.audio",format:"mp3"},
+{name:"اذاعة نداء المعرفة",genre:"إذاعات إخبارية ثقافية",country:"لبنان",logo:"https://cdn.onlineradiobox.com/img/l/7/41017.v5.png",url:"https://nidaa.fm:8443/stream.mp3",format:"mp3"},
+{name:"إذاعة الفجر",genre:"إذاعات إخبارية ثقافية",country:"لبنان",logo:"https://scontent.frba1-4.fna.fbcdn.net/v/t39.30808-6/309793276_5811541162190429_1116021028018961259_n.jpg?_nc_cat=101&ccb=1-7&_nc_sid=6ee11a&_nc_eui2=AeEHxrWjlnqGyil70ERJVqpF0FxC2hTrndHQXELaFOud0e189oJ15BxBUSOSyW6eEz8&_nc_ohc=emiw3j1PpIAQ7kNvgFmIrvi&_nc_zt=23&_nc_ht=scontent.frba1-4.fna&_nc_gid=AlZSvllxolpfVO1x5CbbVWA&oh=00_AYCjg7Qjr2EdFih4XCo7_apObOlzF1NW3WYJicZZi4P_nA&oe=67036876",url:"http://vps1.osina.cloud:9306/;",format:"mp3"},
+{name:"اذاعة ابتهالات الشيخ نصر الدين طوبار",genre:"إذاعات الإبتهالات",country:"مصر",logo:"https://i1.sndcdn.com/artworks-000432019029-ri12gx-t500x500.jpg",url:"https://3vh.liveradiu.com:8000/nasreddine-tobar.mp3",format:"mp3"},
+{name:"اذاعة ابتهالات الشيخ سيد النقشبندي",genre:"إذاعات الإبتهالات",country:"مصر",logo:"https://upload.wikimedia.org/wikipedia/commons/thumb/2/24/Syed_Naqshbandi.jpg/280px-Syed_Naqshbandi.jpg",url:"https://3vh.liveradiu.com:8000/naqshbandi.mp3",format:"mp3"},
+{name:"اذاعة ابتهالات الشيخ محمد عمران",genre:"إذاعات الإبتهالات",country:"مصر",logo:"https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRL3pHD_htNrby4uH_seNcwQjK8_KFXQvWs3Q&s",url:"https://3vh.liveradiu.com:8000/muhammad-imran.mp3",format:"mp3"},
+{name:"اذاعة ابتهالات محمد الطوخي",genre:"إذاعات الإبتهالات",country:"مصر",logo:"https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSJudrbvCsi91fOAKYgFqBz-d7rxjZtCZkOSw&s",url:"https://3vh.liveradiu.com:8000/mohammed-al-toukhi.mp3",format:"mp3"},
+{name:"اذاعة المبتهل وحيد الشرقاوي",genre:"إذاعات الإبتهالات",country:"مصر",logo:"https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTO0_3sEsnovy68qiXQm8GrWslEERFgaz89CA&s",url:"https://stream.zeno.fm/wf4y5crpdg8uv",format:"mp3"},
+{name:"قناة اللغة العربية وعلومه",genre:"إذاعات الأدب و الثراث العربي",country:"السعودية",logo:"",url:"https://radio.alukah.net/arabiyyah",format:"mp3"},
+{name:"الأدب والتراث العربي",genre:"إذاعات الأدب و الثراث العربي",country:"السعودية",logo:"",url:"https://radio.alukah.net/aladab",format:"mp3"},
+{name:"الأدعية والأذكار اليومية",genre:"إذاعات الأذكار",country:"السعودية",logo:"",url:"https://radio.alukah.net/adiyyaha",format:"mp3"},
+{name:"إذاعة أذكار الصباح",genre:"إذاعات الأذكار",country:"مصر",logo:"https://mp3quran.net/img/logo2.png",url:"https://backup.qurango.net/radio/athkar_sabah",format:"mp3"},
+{name:"إذاعة أذكار المساء ",genre:"إذاعات الأذكار",country:"مصر",logo:"https://mp3quran.net/img/logo2.png",url:"https://backup.qurango.net/radio/athkar_masa",format:"mp3"},
+{name:"إذاعة تكبيرات العيد",genre:"إذاعات الأذكار",country:"مصر",logo:"https://mp3quran.net/img/logo2.png",url:"https://backup.qurango.net/radio/eid",format:"mp3"},
+{name:"إذاعة السنّة",genre:"إذاعات الحديث و السنة",country:"السعودية",logo:"https://play-lh.googleusercontent.com/-yxYxAtZ6AUFn9RyqwZtw8VGKZuKIqTGQY0_u5UrL2S3W2ZXuB9wJ2V5BQM3E3mpwD0=w240-h480-rw",url:"http://andromeda.shoutca.st:8189/stream",format:"mp3"},
+{name:"إذاعة المجد للحديث الشريف",genre:"إذاعات الحديث و السنة",country:"السعودية",logo:"https://almajdtv.com/wp-content/uploads/2021/07/cropped-Logo-almajd-1.png",url:"http://r7.tarat.com:8006/stream?type=http&amp;nocache=25",format:"mp3"},
+{name:"إذاعة الحديث وعلومه",genre:"إذاعات الحديث و السنة",country:"السعودية",logo:"https://guidetosunnah.com/media/ethaaa-alhdyth-oaalomh635_showWebsiteThumb.png",url:"https://radio.alukah.net/hadith",format:"mp3"},
+{name:"إذاعة منظومة السنة",genre:"إذاعات الحديث و السنة",country:"مصر",logo:"https://zeno.fm/_next/image/?url=https%3A%2F%2Fimages.zeno.fm%2FC3xgFD4m49h-rUG-FUy06YUU4Y6frDcyGV2DhedEi9I%2Frs%3Afit%3A240%3A240%2Fg%3Ace%3A0%3A0%2FaHR0cHM6Ly9zdHJlYW0tdG9vbHMuemVub21lZGlhLmNvbS9jb250ZW50L3N0YXRpb25zLzY5ZWE2MWI0LTNiZmEtNGRlYi05ZTNjLWExNGRjMGQxZDM1NC9pbWFnZS8_dXBkYXRlZD0xNjkxMTQ4OTQwMDAwP3U9NTc2MDA5Mw.webp&w=1200&q=100",url:"https://stream.zeno.fm/etzx31pvxpnuv",format:"mp3"},
+{name:"قناة السلوك والآداب والأخلاق ومحاسن الأعمال",genre:"إذاعات السلوك والآداب",country:"السعودية",logo:"",url:"https://radio.alukah.net/assuluk",format:"mp3"},
+{name:"إذاعة الصحابة",genre:"إذاعات السير و التاريخ",country:"السعودية",logo:"https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcR304rVJmQ_c--aRlyOx8g62HeeJchIkU7utg&s",url:"http://live.mp3quran.net:8028/;.mp3",format:"mp3"},
+{name:"التراجم والتاريخ والسير",genre:"إذاعات السير و التاريخ",country:"السعودية",logo:"",url:"https://radio.alukah.net/tarajim",format:"mp3"},
+{name:"إذاعة صور من حياة الصحابة والتابعين رضوان الله عليهم ",genre:"إذاعات السير و التاريخ",country:"مصر",logo:"https://mp3quran.net/img/logo2.png",url:"https://backup.qurango.net/radio/sahabah",format:"mp3"},
+{name:"ذاعة السيرة النبوية وقصص القرآن والأنبياء والصحابة",genre:"إذاعات السيرة النبوية",country:"السعودية",logo:"https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRiW-6BGaZgdwmC3YfyvScCqMgNAKMREQWCdA&s",url:"https://radio.alukah.net/sirah",format:"mp3"},
+{name:"في ظلال السيرة النبوية - 400 حلقة عن سيرة نبينا محمد صلى الله عليه وسلم- ",genre:"إذاعات السيرة النبوية",country:"مصر",logo:"https://tvquran.com/uploads/authors/images/%D8%B9%D8%A8%D8%AF%20%D8%A7%D9%84%D8%A8%D8%A7%D8%B3%D8%B7%20%D8%B9%D8%A8%D8%AF%20%D8%A7%D9%84%D8%B5%D9%85%D8%AF.jpg",url:"https://backup.qurango.net/radio/fi_zilal_alsiyra",format:"mp3"},
+{name:" إذاعة العقيدة والتوحيد",genre:"إذاعات العقيدة والتوحيد",country:"السعودية",logo:"https://1.bp.blogspot.com/-i9FCh5QGB00/UPJpy2qLSnI/AAAAAAAAAmw/VVy6asaJkKs/s1600/2013-01-13+11+00+32.png",url:"https://radio.alukah.net/aqidah",format:"mp3"},
+{name:"إذاعة كبار العلماء",genre:"إذاعات العلماء و الدعاة",country:"السعودية",logo:"https://yt3.googleusercontent.com/ytc/AIdro_lBXnIFmldz223voMFm_dr1Cqt5UtOKpm6wZU1Jzb2fOg=s160-c-k-c0x00ffffff-no-rj",url:"https://radio.alukah.net/ulama",format:"mp3"},
+{name:"قناة الدكتور خالد الجريسي",genre:"إذاعات العلماء و الدعاة",country:"السعودية",logo:"https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSaPcSeGpoVf5zG8oFCb2fhnTa6lBaYCsdVrQ&s",url:"https://radio.alukah.net/aljeraisy",format:"mp3"},
+{name:"قناة الدكتور سعد الحميد",genre:"إذاعات العلماء و الدعاة",country:"السعودية",logo:"https://upload.wikimedia.org/wikipedia/commons/thumb/5/54/%D8%B5%D9%88%D8%B1%D8%A9_%D8%B4%D8%AE%D8%B5%D9%8A%D8%A9_%D8%B3%D8%B9%D8%AF_%D8%A7%D9%84%D8%AD%D9%85%D9%8A%D8%AF.jpg/640px-%D8%B5%D9%88%D8%B1%D8%A9_%D8%B4%D8%AE%D8%B5%D9%8A%D8%A9_%D8%B3%D8%B9%D8%AF_%D8%A7%D9%84%D8%AD%D9%85%D9%8A%D8%AF.jpg",url:"https://radio.alukah.net/humayid",format:"mp3"},
+{name:"إذاعة عمير المدخلي",genre:"إذاعات العلماء و الدعاة",country:"السعودية",logo:"https://zeno.fm/_next/image/?url=https%3A%2F%2Fimages.zeno.fm%2FHi5-lGoeeAjPcNrObgRnYRanhHNetf5BMBEcxULOuus%2Frs%3Afit%3A240%3A240%2Fg%3Ace%3A0%3A0%2FaHR0cHM6Ly9zdHJlYW0tdG9vbHMuemVub21lZGlhLmNvbS9jb250ZW50L3N0YXRpb25zL2FneHpmbnBsYm04dGMzUmhkSE55TWdzU0NrRjFkR2hEYkdsbGJuUVlnSUN3MnZmMF9RZ01DeElPVTNSaGRHbHZibEJ5YjJacGJHVVlnSUN3dW91MTJ3a01vZ0VFZW1WdWJ3L2ltYWdlLz91cGRhdGVkPTE2NjE2MzY2MzMwMDA_dT01NzYwMjA2.webp&w=1200&q=100",url:"https://stream.zeno.fm/gpm8qh09tv8uv",format:"mp3"},
+{name:"قناة عمر عبد الكافي بث حي",genre:"إذاعات العلماء و الدعاة",country:"مصر",logo:"https://static.mytuner.mobi/media/tvos_radios/4Ucm9ymsaH.jpg",url:"http://104.7.66.64:8007/;?icy=http",format:"mp3"},
+{name:"إذاعة الشيخ كشك",genre:"إذاعات العلماء و الدعاة",country:"مصر",logo:"https://static.mytuner.mobi/media/tvos_radios/dFGy5gmTrV.jpg",url:"http://104.7.66.64:8012/;?icy=http",format:"mp3"},
+{name:" إذاعة الفتاوى",genre:"إذاعات الفتاوى",country:"الإمارات العربية",logo:"https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQRu-tnpkSB1MSo6u-h5ynM25DY1j_Y605RTA&s",url:"http://live.mp3quran.net:8014/;stream/1",format:"mp3"},
+{name:"إذاعة فتاوى اسلامية",genre:"إذاعات الفتاوى",country:"السعودية",logo:"https://www.ashefaa.com/icon/quran/xFatawa.png.pagespeed.ic.4KE1hKCWRN.webp",url:"https://backup.qurango.net/radio/fatwa/%D8%A3%D8%AB%D9%8A%D8%B1%20%D8%B1%D8%A7%D8%AF%D9%8A%D9%88.mp3",format:"mp3"},
+{name:"إذاعة الفتاوى العامة- ",genre:"إذاعات الفتاوى",country:"مصر",logo:"https://mp3quran.net/img/logo2.png",url:"https://backup.qurango.net/radio/fatwa",format:"mp3"},
+{name:"إذاعة االفقه",genre:"إذاعات الفقه",country:"السعودية",logo:"https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRURDCdA93PJE7EJRZsquMlqxv8pdxHexXyZw&s",url:"https://radio.alukah.net/fiqhiyyah",format:"mp3"},
+{name:"كتاب الاختيارات الفقهية في مسائل العبادات والمعاملات- ",genre:"إذاعات الفقه",country:"مصر",logo:"https://tvquran.com/uploads/authors/images/%D8%B9%D8%A8%D8%AF%20%D8%A7%D9%84%D8%A8%D8%A7%D8%B3%D8%B7%20%D8%B9%D8%A8%D8%AF%20%D8%A7%D9%84%D8%B5%D9%85%D8%AF.jpg",url:"https://backup.qurango.net/radio/alaikhtiarat_alfiqhayh_bin_baz",format:"mp3"},
+{name:"إذاعة زايد للقرآن الكريم",genre:"إذاعات القرآن الكريم",country:"الإمارات العربية",logo:"https://cdn.onlineradiobox.com/img/l/8/18998.v1.png",url:"http://ccfz.dyndns.org:4427/zfm",format:"mp3"},
+{name:"إذاعة دبي للقرآن",genre:"إذاعات القرآن الكريم",country:"الإمارات العربية",logo:"http://dubaiholyquran.ae/new/wp-content/uploads/2017/05/Dubaiquraannewlogo.png",url:"https://uk5.internet-radio.com/proxy/dubaiholyquran?mp=/stream;",format:"mp3"},
+{name:"إذاعة زايد للقرآن الكريم",genre:"إذاعات القرآن الكريم",country:"الإمارات العربية",logo:"https://zayedquran.gov.ae/wp-content/uploads/2020/03/zayedquran.png",url:"https://zayedquran.gov.ae/stream.php",format:"mp3"},
+{name:"إذاعة الشارقة",genre:"إذاعات القرآن الكريم",country:"الإمارات العربية",logo:"https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEj8XMtpbvPbq9cS9F2kaLp5oOYJWeckbBgTXD7PIgEEzwr1fmpvfLD2FgP9T_oWXzhYwvlTRbFW43-K6lOW88bEJ4EMEDLanLi4bREv9sKQHpnmQ79hOxRtPCKsc3s8SYHuDsGIZMDIHX0/s1600/539798_ico.png",url:"https://svs.itworkscdn.net/smcquranlive/quranradiolive/chunks.m3u8",format:"m3u8"},
+{name:" إذاعة القرآن الكريم البحرين",genre:"إذاعات القرآن الكريم",country:"البحرين",logo:"https://static.mytuner.mobi/media/radios-150px/015/holy-quran-10611061-lqran-lkrym.8edd8e89.jpg",url:"https://5c7b683162943.streamlock.net/live/ngrp:radio-106-1_all/playlist.m3u8",format:"m3u8"},
+{name:"إذاعة روح القرآن",genre:"إذاعات القرآن الكريم",country:"البحرين",logo:"https://static.mytuner.mobi/media/tvos_radios/957/quran-for-the-soul.aef3a6fa.jpg",url:"http://104.7.66.64:8095/;?icy=http",format:"mp3"},
+{name:"إذاعة مكة للقرآن الكريم",genre:"إذاعات القرآن الكريم",country:"السعودية",logo:"data:image/jpeg;base64,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",url:"http://mediaserver2.islamicity.com:8000/SaudiTVArabic",format:"mp3"},
+{name:"اذاعة القران الكريم السعودية",genre:"إذاعات القرآن الكريم",country:"السعودية",logo:"https://yt3.googleusercontent.com/KdX1qoIyNQD835uhCEpAPz4yVRKJCPCZQnKkCbeeQYhkLRbloCCYwrlxvo_77aCkyDZr0OEcAg=s900-c-k-c0x00ffffff-no-rj",url:"https://stream.radiojar.com/0tpy1h0kxtzuv",format:"mp3"},
+{name:"اذاعة القرآن تراتيل",genre:"إذاعات القرآن الكريم",country:"السعودية",logo:"https://pbs.twimg.com/media/EfetZzcXgAA-RfY.jpg",url:"https://qurango.net/radio/tarateel",format:"mp3"},
+{name:"اذاعة الشيخ احمد العجمي",genre:"إذاعات القرآن الكريم",country:"السعودية",logo:"https://yt3.googleusercontent.com/1pzelZXm8u-QNbztEUzqXfKUmYltpOLN3vRbMeKGkjvDoaZMjPFgifYhGTTbWzjOZLieWXA9=s900-c-k-c0x00ffffff-no-rj",url:"https://qurango.net/radio/ahmad_alajmy",format:"mp3"},
+{name:"اذاعة الشيخ ماهر المعيقلي",genre:"إذاعات القرآن الكريم",country:"السعودية",logo:"https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRYNeeKgMXpO3f_5wIqUXBF3zHVkkkMGXO5sA&s",url:"https://qurango.net/radio/maher_al_meaqli",format:"mp3"},
+{name:"اذاعة الشيخ محمد ايوب",genre:"إذاعات القرآن الكريم",country:"السعودية",logo:"https://upload.wikimedia.org/wikipedia/ar/6/6f/Muhammad_ayop.jpeg",url:"https://qurango.net/radio/mohammed_ayyub",format:"mp3"},
+{name:"اذاعة الشيخ فارس عباد",genre:"إذاعات القرآن الكريم",country:"السعودية",logo:"https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTQ2wWuAaaWFQC4KvOW26hfYzY2On25yPEo6A&s",url:"https://qurango.net/radio/fares_abbad",format:"mp3"},
+{name:"اذاعة الشيخ ادريس أبكر",genre:"إذاعات القرآن الكريم",country:"السعودية",logo:"https://yt3.googleusercontent.com/w5FDliFtGvGtFV-91OvHBrAR5jZ4LksPdLY372KSBbhz2sPjeXwmt208OVASXc_XwBIcpjAzzns=s900-c-k-c0x00ffffff-no-rj",url:"https://qurango.net/radio/idrees_abkr",format:"mp3"},
+{name:"اذاعة الشيخ عبدالله بصفر",genre:"إذاعات القرآن الكريم",country:"السعودية",logo:"https://static.suratmp3.com/pics/reciters/thumbs/24_600_600.jpg",url:"https://qurango.net/radio/abdullah_basfer",format:"mp3"},
+{name:"اذاعة الشيخ سعد الغامدي",genre:"إذاعات القرآن الكريم",country:"السعودية",logo:"https://tvquran.com/uploads/authors/images/%D8%B3%D8%B9%D8%AF%20%D8%A7%D9%84%D8%BA%D8%A7%D9%85%D8%AF%D9%8A.jpg",url:"https://qurango.net/radio/saad_alghamdi",format:"mp3"},
+{name:"اذاعة الشيخ سعود الشريم",genre:"إذاعات القرآن الكريم",country:"السعودية",logo:"https://quranmp3.jo1jo.com/alshrem.webp",url:"https://qurango.net/radio/saud_alshuraim",format:"mp3"},
+{name:"اذاعة الشيخ السديس",genre:"إذاعات القرآن الكريم",country:"السعودية",logo:"https://upload.wikimedia.org/wikipedia/commons/thumb/1/18/Abdul-Rahman_Al-Sudais_%28Cropped%2C_2011%29.jpg/370px-Abdul-Rahman_Al-Sudais_%28Cropped%2C_2011%29.jpg",url:"https://qurango.net/radio/abdulrahman_alsudaes",format:"mp3"},
+{name:"اذاعة الشيخ خالد القحطاني",genre:"إذاعات القرآن الكريم",country:"السعودية",logo:"https://tvquran.com/uploads/authors/images/%D8%AE%D8%A7%D9%84%D8%AF%20%D8%A7%D9%84%D9%82%D8%AD%D8%B7%D8%A7%D9%86%D9%8A.jpg",url:"https://qurango.net/radio/khaled_alqahtani",format:"mp3"},
+{name:"اذاعة الشيخ ياسر الدوسري",genre:"إذاعات القرآن الكريم",country:"السعودية",logo:"https://i1.sndcdn.com/artworks-97TcTXnC3kCMZE6A-DUU45A-t500x500.jpg",url:"https://qurango.net/radio/yasser_aldosari",format:"mp3"},
+{name:"اذاعة الشيخ خالد الجليل",genre:"إذاعات القرآن الكريم",country:"السعودية",logo:"https://tvquran.com/uploads/authors/images/%D8%AE%D8%A7%D9%84%D8%AF%20%D8%A7%D9%84%D8%AC%D9%84%D9%8A%D9%84.jpg",url:"https://qurango.net/radio/khalid_aljileel",format:"mp3"},
+{name:"قناة القرآن الكريم",genre:"إذاعات القرآن الكريم",country:"السعودية",logo:"",url:"https://radio.alukah.net/quran",format:"mp3"},
+{name:"إذاعة تلاوات خاشعة ",genre:"إذاعات القرآن الكريم",country:"السعودية",logo:"https://zeno.fm/_next/image/?url=https%3A%2F%2Fimages.zeno.fm%2FXWMKKqwU719jxw0xAinjPSUEWdSxQkA1MMfrHo3ciq8%2Frs%3Afit%3A240%3A240%2Fg%3Ace%3A0%3A0%2FaHR0cHM6Ly9zdHJlYW0tdG9vbHMuemVub21lZGlhLmNvbS9jb250ZW50L3N0YXRpb25zL2FneHpmbnBsYm04dGMzUmhkSE55TWdzU0NrRjFkR2hEYkdsbGJuUVlnSUNJMTZxU3FnZ01DeElPVTNSaGRHbHZibEJ5YjJacGJHVVlnSUNJdDRER3hBc01vZ0VFZW1WdWJ3L2ltYWdlLz91cGRhdGVkPTE2NjE2MTM5NTEwMDA_dT01NzU4Nzc2.webp&w=1200&q=100",url:"https://stream.zeno.fm/ehvm5e4nyrhvv",format:"mp3"},
+{name:"إذاعة آيات القرآن الكريم",genre:"إذاعات القرآن الكريم",country:"السعودية",logo:"https://zeno.fm/_next/image/?url=https%3A%2F%2Fimages.zeno.fm%2F69kfpaAZxSCfEy4hpuKpnwiUEfBah1WHRJsmDdeRwM0%2Frs%3Afit%3A240%3A240%2Fg%3Ace%3A0%3A0%2FaHR0cHM6Ly9zdHJlYW0tdG9vbHMuemVub21lZGlhLmNvbS9jb250ZW50L3N0YXRpb25zL2FneHpmbnBsYm04dGMzUmhkSE55TWdzU0NrRjFkR2hEYkdsbGJuUVlnSURnMjYtc2x3Z01DeElPVTNSaGRHbHZibEJ5YjJacGJHVVlnSURnMjgyNHJna01vZ0VFZW1WdWJ3L2ltYWdlLz91cGRhdGVkPTE2NjE0MTg2NTUwMDA_dT01NzU4OTA1.webp&w=1200&q=100",url:"https://stream.zeno.fm/x913ttqtarzuv",format:"mp3"},
+{name:"إذاعة القرآن الكريم",genre:"إذاعات القرآن الكريم",country:"الكويت",logo:"https://cdn.onlineradiobox.com/img/l/5/137475.v2.png",url:"https://radio.mp3islam.com/listen/quran_radio/radio.mp3",format:"mp3"},
+{name:"اذاعة الشيخ مشاري العفاسي",genre:"إذاعات القرآن الكريم",country:"الكويت",logo:"https://upload.wikimedia.org/wikipedia/commons/thumb/2/24/%D0%9C%D0%B8%D1%88%D0%B0%D1%80%D0%B8_%D0%A0%D0%B0%D1%88%D0%B8%D0%B4.jpg/238px-%D0%9C%D0%B8%D1%88%D0%B0%D1%80%D0%B8_%D0%A0%D0%B0%D1%88%D0%B8%D0%B4.jpg",url:"https://qurango.net/radio/mishary_alafasi",format:"mp3"},
+{name:"إذاعة القرآن الكريم المغرب ",genre:"إذاعات القرآن الكريم",country:"المغرب",logo:"https://cdn.onlineradiobox.com/img/l/2/20862.v13.png",url:"http://virmach1.hajjam.net:8005/;",format:"mp3"},
+{name:"إذاعة زين بلادي",genre:"إذاعات القرآن الكريم",country:"المغرب",logo:"https://static2.mytuner.mobi/media/tvos_radios/tjshqsefsnhg.png",url:"https://asmaki.ma:8000/radio.mp3",format:"mp3"},
+{name:"إذاعة القران الكريم من تونس",genre:"إذاعات القرآن الكريم",country:"تونس",logo:"https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEhVO236oubim6d74YE4woufM1HTzHO0uwZOoAEzskaKL49__HnPtXZf1dhc7mEjOA2TmezJx_aAOhNPm7CwiDBSunks9iY5Rml0L6OiFTPxD-M4hZbWVmLWVeTHAgGdrbqtROrwjobpdic/s1600/542896_ico.png",url:"http://5.135.194.225:8000/live",format:"mp3"},
+{name:"إذاعة القرآن الكريم",genre:"إذاعات القرآن الكريم",country:"فلسطين",logo:"https://cdn.onlineradiobox.com/img/l/8/103448.v7.png",url:"https://sawtelghad.org:7001/;",format:"mp3"},
+{name:"إذاعة رام الله للقران الكريم",genre:"إذاعات القرآن الكريم",country:"فلسطين",logo:"https://arabmidia.com/wp-content/uploads/2023/05/%D8%B1%D8%A7%D8%AF%D9%8A%D9%88-%D8%B1%D8%A7%D9%85-%D8%A7%D9%84%D9%84%D9%87-%D9%84%D9%84%D9%82%D8%B1%D8%A7%D9%86-%D8%A7%D9%84%D9%83%D8%B1%D9%8A%D9%85.png",url:"https://streamer.mada.ps:8204/quranfm",format:"mp3"},
+{name:"اذاعة الشيخ عبد الرشيد صوفي",genre:"إذاعات القرآن الكريم",country:"قطر",logo:"https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTB1jeWKv1izhPn8IqrRbR3N2dd9KxGBgW60g&s",url:"https://qurango.net/radio/abdulrasheed_soufi_assosi",format:"mp3"},
+{name:"إذاعة القرآن الكريم - الدوحة",genre:"إذاعات القرآن الكريم",country:"قطر",logo:"https://guidetodawah.com/media/11565_showWebsiteThumb.png",url:"https://65ec766567528.streamlock.net/QURAN/myStream/playlist.m3u8",format:"m3u8"},
+{name:"إذاعة القرآن الكريم - الدوحة",genre:"إذاعات القرآن الكريم",country:"قطر",logo:"https://guidetodawah.com/media/11565_showWebsiteThumb.png",url:"https://65ec766567528.streamlock.net/QURAN/myStream/chunklist_w532107644.m3u8",format:"m3u8"},
+{name:"إذاعة القرآن مباشر",genre:"إذاعات القرآن الكريم",country:"مصر",logo:"https://cdn.onlineradiobox.com/img/l/0/124000.v3.png",url:"https://stream-162.zeno.fm/ru2hqnplhk7uv?zt=eyJhbGciOiJIUzI1NiJ9.eyJzdHJlYW0iOiJydTJocW5wbGhrN3V2IiwiaG9zdCI6InN0cmVhbS0xNjIuemVuby5mbSIsInJ0dGwiOjUsImp0aSI6IjlDTzJ3d1luVENPMU02S0VzUUVVR0EiLCJpYXQiOjE3Mjc4NjI4NTksImV4cCI6MTcyNzg2MjkxOX0.EL2ZQ6eYoyUYBSLTyOj7Qz23P3luE7mGE8xevNYkJGg",format:"mp3"},
+{name:"اذاعة الشيخ محمود خليل الحصري",genre:"إذاعات القرآن الكريم",country:"مصر",logo:"https://i1.sndcdn.com/artworks-000177727045-ydxhjt-t500x500.jpg",url:"https://qurango.net/radio/mahmoud_khalil_alhussary",format:"mp3"},
+{name:"اذاعة الشيخ محمد رفعت",genre:"إذاعات القرآن الكريم",country:"مصر",logo:"https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQ2ZIMAwKnpWS4O3sCbwQUYXFZ_fJQsFehc-Q&s",url:"https://3vh.liveradiu.com:8000/mohamed-refaat.mp3",format:"mp3"},
+{name:"اذاعة الشيخ عبدالباسط عبدالصمد",genre:"إذاعات القرآن الكريم",country:"مصر",logo:"https://i1.sndcdn.com/artworks-000177208678-1wrabm-t500x500.jpg",url:"https://qurango.net/radio/abdulbasit_abdulsamad_mojawwad",format:"mp3"},
+{name:"اذاعة الشيخ مصطفى اسماعيل",genre:"إذاعات القرآن الكريم",country:"مصر",logo:"https://upload.wikimedia.org/wikipedia/commons/thumb/c/c9/Mustafa_Ismail.jpg/640px-Mustafa_Ismail.jpg",url:"https://qurango.net/radio/mustafa_ismail",format:"mp3"},
+{name:"اذاعة الشيخ طه الفشني",genre:"إذاعات القرآن الكريم",country:"مصر",logo:"https://media.unitedmuslimworld.com/img/24/03/24/16717.jpg",url:"https://3vh.liveradiu.com:8000/taha-al-fashni.mp3",format:"mp3"},
+{name:"اذاعة الشيخ شعبان عبد العزيز الصياد",genre:"إذاعات القرآن الكريم",country:"مصر",logo:"https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTFAe0fOM7oqpSAlsyY2dtEv4_Fp8F-hsQsqA&s",url:"https://3vh.liveradiu.com:8000/shaaban-al-sayyad.mp3",format:"mp3"},
+{name:"اذاعة الشيخ سيد سعيد",genre:"إذاعات القرآن الكريم",country:"مصر",logo:"https://i1.sndcdn.com/artworks-1gzltNVDkmdSHBW4-b3DTlQ-t500x500.jpg",url:"https://3vh.liveradiu.com:8000/syd-said.mp3",format:"mp3"},
+{name:"اذاعة الشيخ الشحات محمد أنور",genre:"إذاعات القرآن الكريم",country:"مصر",logo:"https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTrbHABvz3OCx-EoqZhUm1gCEIhJ276y_OTfw&s",url:"https://3vh.liveradiu.com:8000/shahat-muhammad-anwar.mp3",format:"mp3"},
+{name:"اذاعة الشيخ الطبلاوي",genre:"إذاعات القرآن الكريم",country:"مصر",logo:"https://www.aljazeera.net/wp-content/uploads/2021/04/212erer12.jpg?resize=1200%2C630",url:"https://qurango.net/radio/mohammad_altablaway",format:"mp3"},
+{name:"اذاعة الشيخ عبد الفتاح الشعشاعي",genre:"إذاعات القرآن الكريم",country:"مصر",logo:"https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQbsFBqJ6sNJmnAepO5kDf_19ZycTZfz78Ngw&s",url:"https://3vh.liveradiu.com:8000/abdelfattah-chachaei.mp3",format:"mp3"},
+{name:"اذاعة الشيخ علي محمود",genre:"إذاعات القرآن الكريم",country:"مصر",logo:"https://1.bp.blogspot.com/-4H_vVIoVCao/X96jaX8g2PI/AAAAAAAACH4/z-usC-NR8A4Z35VoN1awIvpaSYWFuveHgCLcBGAsYHQ/s2000/%25D8%25B9%25D9%2584%25D9%258A-%25D9%2585%25D8%25AD%25D9%2585%25D9%2588%25D8%25AF.jpg",url:"https://3vh.liveradiu.com:8000/ali-mahmoud.mp3",format:"mp3"},
+{name:"اذاعة الشيخ محمود عبد الحكم",genre:"إذاعات القرآن الكريم",country:"مصر",logo:"https://i1.sndcdn.com/artworks-000236998407-3hy82p-t500x500.jpg",url:"https://3vh.liveradiu.com:8000/mahmoud-abdel-hakam.mp3",format:"mp3"},
+{name:"اذاعة الشيخ محمود حسين منصور",genre:"إذاعات القرآن الكريم",country:"مصر",logo:"https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEi3hh2NRZp-HhoA8-zAeoARdCisrtkzDTpjT9TZyDAqjXcZ3OLvC5x9axxARlTecxPPw4jh2y4LQrk5cYu3BU8NvxtYXjqO9SXBs0GvvanVmKVRm5S5G3ckDBVZ91yWfymjucyUBgQDJoY9/s1600/hqdefault.jpg",url:"https://3vh.liveradiu.com:8000/mahmoud-hussein-mansour.mp3",format:"mp3"},
+{name:"اذاعة الشيخ محمد جبريل",genre:"إذاعات القرآن الكريم",country:"مصر",logo:"https://tvquran.com/uploads/authors/images/%D9%85%D8%AD%D9%85%D8%AF%20%D8%AC%D8%A8%D8%B1%D9%8A%D9%84.jpg",url:"https://qurango.net/radio/mohammed_jibreel",format:"mp3"},
+{name:"إذاعة القرآن للقلب",genre:"إذاعات القرآن الكريم",country:"مصر",logo:"https://static.mytuner.mobi/media/tvos_radios/SQnFkMfj5a.jpg",url:"https://edge.mixlr.com/channel/rwumx",format:"mp3"},
+{name:"إداعة القرآن الكريم",genre:"إذاعات القرآن الكريم",country:"مصر",logo:"https://static.mytuner.mobi/media/tvos_radios/APTGXzujpV.png",url:"http://66.45.232.131:9994/;stream.mp3",format:"mp3"},
+{name:"إذاعة الشيخ عبدالرحمن الماجد",genre:"إذاعات القرآن الكريم",country:"مصر",logo:"https://static.mytuner.mobi/media/tvos_radios/ywqtd2akw9jt.jpg",url:"http://live.mp3quran.net:9726/",format:"mp3"},
+{name:"اذاعة الشيخ عبدالباسط عبدالصمد",genre:"إذاعات القرآن الكريم",country:"مصر",logo:"https://static.mytuner.mobi/media/tvos_radios/vnhfcs6z4sqc.jpg",url:"http://live.mp3quran.net:9746/",format:"mp3"},
+{name:"الإذاعة العامة  اذاعة متنوعة لمختلف القراء ",genre:"إذاعات القرآن الكريم",country:"مصر",logo:"https://mp3quran.net/img/logo2.png",url:"https://backup.qurango.net/radio/mix",format:"mp3"},
+{name:"تراتيل قصيرة متميزة ",genre:"إذاعات القرآن الكريم",country:"مصر",logo:"https://mp3quran.net/img/logo2.png",url:"https://backup.qurango.net/radio/tarateel",format:"mp3"},
+{name:"إذاعة سورة البقرة - لعدد من القراء ",genre:"إذاعات القرآن الكريم",country:"مصر",logo:"https://mp3quran.net/img/logo2.png",url:"https://backup.qurango.net/radio/albaqarah",format:"mp3"},
+{name:"إذاعة تلاوات خاشعة ",genre:"إذاعات القرآن الكريم",country:"مصر",logo:"https://mp3quran.net/img/logo2.png",url:"https://backup.qurango.net/radio/salma",format:"mp3"},
+{name:"إذاعة الرقية الشرعية- ",genre:"إذاعات القرآن الكريم",country:"مصر",logo:"https://mp3quran.net/img/logo2.png",url:"https://backup.qurango.net/radio/roqiah",format:"mp3"},
+{name:"سورة الملك- ",genre:"إذاعات القرآن الكريم",country:"مصر",logo:"https://tvquran.com/uploads/authors/images/%D8%B9%D8%A8%D8%AF%20%D8%A7%D9%84%D8%A8%D8%A7%D8%B3%D8%B7%20%D8%B9%D8%A8%D8%AF%20%D8%A7%D9%84%D8%B5%D9%85%D8%AF.jpg",url:"https://backup.qurango.net/radio/Surah_Al-Mulk",format:"mp3"},
+{name:"اذاعة السنة للقرآن الكريم",genre:"إذاعات القرآن الكريم",country:"مصر",logo:"https://zeno.fm/_next/image/?url=https%3A%2F%2Fimages.zeno.fm%2FY5p7fhnHDoNCayY8xApllpQfdC6MFfNTYJQpFdFjm7k%2Frs%3Afit%3A240%3A240%2Fg%3Ace%3A0%3A0%2FaHR0cHM6Ly9zdHJlYW0tdG9vbHMuemVub21lZGlhLmNvbS9jb250ZW50L3N0YXRpb25zLzI4M2FhMzA0LTVlZGUtNGMyYy1hMTI1LTM5MjA4NDY0Mjg5Mi9pbWFnZS8_dXBkYXRlZD0xNjk4MzUwODgyMDAwP3U9NTc2MDA5NA.webp&w=1200&q=100",url:"https://stream.zeno.fm/bmsqaqy6jpjtv",format:"mp3"},
+{name:"إذاعة محمد صديق المنشاوي- المصحف المجود",genre:"إذاعات القرآن الكريم مجود",country:"مصر",logo:"https://upload.wikimedia.org/wikipedia/commons/e/ee/Elminshwey.jpg",url:"https://backup.qurango.net/radio/mohammed_siddiq_alminshawi_mojawwad",format:"mp3"},
+{name:"إذاعة محمود خليل الحصري- المصحف المجود",genre:"إذاعات القرآن الكريم مجود",country:"مصر",logo:"https://tvquran.com/uploads/authors/images/%D9%85%D8%AD%D9%85%D9%88%D8%AF%20%D8%AE%D9%84%D9%8A%D9%84%20%D8%A7%D9%84%D8%AD%D8%B5%D8%B1%D9%8A.jpg",url:"https://backup.qurango.net/radio/mahmoud_khalil_alhussary_mojawwad",format:"mp3"},
+{name:"إذاعة محمود علي البنا- المصحف المجود",genre:"إذاعات القرآن الكريم مجود",country:"مصر",logo:"https://tvquran.com/uploads/authors/images/%D9%85%D8%AD%D9%85%D9%88%D8%AF%20%D8%B9%D9%84%D9%8A%20%D8%A7%D9%84%D8%A8%D9%86%D8%A7.jpg",url:"https://backup.qurango.net/radio/mahmoud_ali__albanna_mojawwad",format:"mp3"},
+{name:"إذاعة عبدالباسط عبدالصمد- المصحف المجود",genre:"إذاعات القرآن الكريم مجود",country:"مصر",logo:"https://tvquran.com/uploads/authors/images/%D8%B9%D8%A8%D8%AF%20%D8%A7%D9%84%D8%A8%D8%A7%D8%B3%D8%B7%20%D8%B9%D8%A8%D8%AF%20%D8%A7%D9%84%D8%B5%D9%85%D8%AF.jpg",url:"https://backup.qurango.net/radio/abdulbasit_abdulsamad_mojawwad",format:"mp3"},
+{name:"ترجمة معاني القرآن باللغة الأسبانية- ",genre:"إذاعات ترجمة معاني القرآن",country:"مصر",logo:"https://tvquran.com/uploads/authors/images/%D8%B9%D8%A8%D8%AF%20%D8%A7%D9%84%D8%A8%D8%A7%D8%B3%D8%B7%20%D8%B9%D8%A8%D8%AF%20%D8%A7%D9%84%D8%B5%D9%85%D8%AF.jpg",url:"https://backup.qurango.net/radio/translation_quran_spanish_afs",format:"mp3"},
+{name:"ترجمة معاني القرآن باللغة الألبانية- ",genre:"إذاعات ترجمة معاني القرآن",country:"مصر",logo:"https://tvquran.com/uploads/authors/images/%D8%B9%D8%A8%D8%AF%20%D8%A7%D9%84%D8%A8%D8%A7%D8%B3%D8%B7%20%D8%B9%D8%A8%D8%AF%20%D8%A7%D9%84%D8%B5%D9%85%D8%AF.jpg",url:"https://backup.qurango.net/radio/translation_quran_albanian",format:"mp3"},
+{name:"ترجمة معاني القرآن باللغة الألمانية- ",genre:"إذاعات ترجمة معاني القرآن",country:"مصر",logo:"https://tvquran.com/uploads/authors/images/%D8%B9%D8%A8%D8%AF%20%D8%A7%D9%84%D8%A8%D8%A7%D8%B3%D8%B7%20%D8%B9%D8%A8%D8%AF%20%D8%A7%D9%84%D8%B5%D9%85%D8%AF.jpg",url:"https://backup.qurango.net/radio/translation_quran_german",format:"mp3"},
+{name:"ترجمة معاني القرآن باللغة الأمازيغية- ",genre:"إذاعات ترجمة معاني القرآن",country:"مصر",logo:"https://tvquran.com/uploads/authors/images/%D8%B9%D8%A8%D8%AF%20%D8%A7%D9%84%D8%A8%D8%A7%D8%B3%D8%B7%20%D8%B9%D8%A8%D8%AF%20%D8%A7%D9%84%D8%B5%D9%85%D8%AF.jpg",url:"https://backup.qurango.net/radio/translation_quran_tamazight",format:"mp3"},
+{name:"ترجمة معاني القرآن باللغة الأوردية- ",genre:"إذاعات ترجمة معاني القرآن",country:"مصر",logo:"https://tvquran.com/uploads/authors/images/%D8%B9%D8%A8%D8%AF%20%D8%A7%D9%84%D8%A8%D8%A7%D8%B3%D8%B7%20%D8%B9%D8%A8%D8%AF%20%D8%A7%D9%84%D8%B5%D9%85%D8%AF.jpg",url:"https://backup.qurango.net/radio/translation_quran_urdu_sds_shur",format:"mp3"},
+{name:"ترجمة معاني القرآن باللغة الأوردية- ",genre:"إذاعات ترجمة معاني القرآن",country:"مصر",logo:"https://tvquran.com/uploads/authors/images/%D8%B9%D8%A8%D8%AF%20%D8%A7%D9%84%D8%A8%D8%A7%D8%B3%D8%B7%20%D8%B9%D8%A8%D8%AF%20%D8%A7%D9%84%D8%B5%D9%85%D8%AF.jpg",url:"https://backup.qurango.net/radio/translation_quran_urdu_minsh",format:"mp3"},
+{name:"ترجمة معاني القرآن باللغة الأوردية - عبدالباسط عبدالصمد- ",genre:"إذاعات ترجمة معاني القرآن",country:"مصر",logo:"https://tvquran.com/uploads/authors/images/%D8%B9%D8%A8%D8%AF%20%D8%A7%D9%84%D8%A8%D8%A7%D8%B3%D8%B7%20%D8%B9%D8%A8%D8%AF%20%D8%A7%D9%84%D8%B5%D9%85%D8%AF.jpg",url:"https://backup.qurango.net/radio/translation_quran_urdu_basit",format:"mp3"},
+{name:"ترجمة معاني القرآن باللغة الإنجليزية- ",genre:"إذاعات ترجمة معاني القرآن",country:"مصر",logo:"https://tvquran.com/uploads/authors/images/%D8%B9%D8%A8%D8%AF%20%D8%A7%D9%84%D8%A8%D8%A7%D8%B3%D8%B7%20%D8%B9%D8%A8%D8%AF%20%D8%A7%D9%84%D8%B5%D9%85%D8%AF.jpg",url:"https://backup.qurango.net/radio/translation_quran_english_basit",format:"mp3"},
+{name:"ترجمة معاني القرآن باللغة الإنجليزية- ",genre:"إذاعات ترجمة معاني القرآن",country:"مصر",logo:"https://tvquran.com/uploads/authors/images/%D8%B9%D8%A8%D8%AF%20%D8%A7%D9%84%D8%A8%D8%A7%D8%B3%D8%B7%20%D8%B9%D8%A8%D8%AF%20%D8%A7%D9%84%D8%B5%D9%85%D8%AF.jpg",url:"https://backup.qurango.net/radio/translation_quran_english_bsfr",format:"mp3"},
+{name:"ترجمة معاني القرآن باللغة الإنجليزية -ترجمة والك-- ",genre:"إذاعات ترجمة معاني القرآن",country:"مصر",logo:"https://tvquran.com/uploads/authors/images/%D8%B9%D8%A8%D8%AF%20%D8%A7%D9%84%D8%A8%D8%A7%D8%B3%D8%B7%20%D8%B9%D8%A8%D8%AF%20%D8%A7%D9%84%D8%B5%D9%85%D8%AF.jpg",url:"https://backup.qurango.net/radio/translation_quran_english_walk_basit",format:"mp3"},
+{name:"ترجمة معاني القرآن باللغة البرتغالية- ",genre:"إذاعات ترجمة معاني القرآن",country:"مصر",logo:"https://tvquran.com/uploads/authors/images/%D8%B9%D8%A8%D8%AF%20%D8%A7%D9%84%D8%A8%D8%A7%D8%B3%D8%B7%20%D8%B9%D8%A8%D8%AF%20%D8%A7%D9%84%D8%B5%D9%85%D8%AF.jpg",url:"https://backup.qurango.net/radio/translation_quran_portuguese",format:"mp3"},
+{name:"ترجمة معاني القرآن باللغة البوسنية- ",genre:"إذاعات ترجمة معاني القرآن",country:"مصر",logo:"https://tvquran.com/uploads/authors/images/%D8%B9%D8%A8%D8%AF%20%D8%A7%D9%84%D8%A8%D8%A7%D8%B3%D8%B7%20%D8%B9%D8%A8%D8%AF%20%D8%A7%D9%84%D8%B5%D9%85%D8%AF.jpg",url:"https://backup.qurango.net/radio/translation_quran_bosnia",format:"mp3"},
+{name:"ترجمة معاني القرآن باللغة التركية- ",genre:"إذاعات ترجمة معاني القرآن",country:"مصر",logo:"https://tvquran.com/uploads/authors/images/%D8%B9%D8%A8%D8%AF%20%D8%A7%D9%84%D8%A8%D8%A7%D8%B3%D8%B7%20%D8%B9%D8%A8%D8%AF%20%D8%A7%D9%84%D8%B5%D9%85%D8%AF.jpg",url:"https://backup.qurango.net/radio/translation_quran_turkish",format:"mp3"},
+{name:"ترجمة معاني القرآن باللغة الروسية- ",genre:"إذاعات ترجمة معاني القرآن",country:"مصر",logo:"https://tvquran.com/uploads/authors/images/%D8%B9%D8%A8%D8%AF%20%D8%A7%D9%84%D8%A8%D8%A7%D8%B3%D8%B7%20%D8%B9%D8%A8%D8%AF%20%D8%A7%D9%84%D8%B5%D9%85%D8%AF.jpg",url:"https://backup.qurango.net/radio/translation_quran_Russia",format:"mp3"},
+{name:"ترجمة معاني القرآن باللغة الصينية- ",genre:"إذاعات ترجمة معاني القرآن",country:"مصر",logo:"https://tvquran.com/uploads/authors/images/%D8%B9%D8%A8%D8%AF%20%D8%A7%D9%84%D8%A8%D8%A7%D8%B3%D8%B7%20%D8%B9%D8%A8%D8%AF%20%D8%A7%D9%84%D8%B5%D9%85%D8%AF.jpg",url:"https://backup.qurango.net/radio/translation_quran_chinese",format:"mp3"},
+{name:"ترجمة معاني القرآن باللغة الفارسية- ",genre:"إذاعات ترجمة معاني القرآن",country:"مصر",logo:"https://tvquran.com/uploads/authors/images/%D8%B9%D8%A8%D8%AF%20%D8%A7%D9%84%D8%A8%D8%A7%D8%B3%D8%B7%20%D8%B9%D8%A8%D8%AF%20%D8%A7%D9%84%D8%B5%D9%85%D8%AF.jpg",url:"https://backup.qurango.net/radio/translation_quran_farsi",format:"mp3"},
+{name:"ترجمة معاني القرآن باللغة الفرنسية- ",genre:"إذاعات ترجمة معاني القرآن",country:"مصر",logo:"https://tvquran.com/uploads/authors/images/%D8%B9%D8%A8%D8%AF%20%D8%A7%D9%84%D8%A8%D8%A7%D8%B3%D8%B7%20%D8%B9%D8%A8%D8%AF%20%D8%A7%D9%84%D8%B5%D9%85%D8%AF.jpg",url:"https://backup.qurango.net/radio/translation_quran_french",format:"mp3"},
+{name:"ترجمة معاني القرآن باللغة الكردية- ",genre:"إذاعات ترجمة معاني القرآن",country:"مصر",logo:"https://tvquran.com/uploads/authors/images/%D8%B9%D8%A8%D8%AF%20%D8%A7%D9%84%D8%A8%D8%A7%D8%B3%D8%B7%20%D8%B9%D8%A8%D8%AF%20%D8%A7%D9%84%D8%B5%D9%85%D8%AF.jpg",url:"https://backup.qurango.net/radio/translation_quran_kurdish",format:"mp3"},
+{name:"ترجمة معاني القرآن باللغة الكورية- ",genre:"إذاعات ترجمة معاني القرآن",country:"مصر",logo:"https://tvquran.com/uploads/authors/images/%D8%B9%D8%A8%D8%AF%20%D8%A7%D9%84%D8%A8%D8%A7%D8%B3%D8%B7%20%D8%B9%D8%A8%D8%AF%20%D8%A7%D9%84%D8%B5%D9%85%D8%AF.jpg",url:"https://backup.qurango.net/radio/translation_quran_Korean",format:"mp3"},
+{name:"ترجمة معاني القرآن باللغة المجرية- ",genre:"إذاعات ترجمة معاني القرآن",country:"مصر",logo:"https://tvquran.com/uploads/authors/images/%D8%B9%D8%A8%D8%AF%20%D8%A7%D9%84%D8%A8%D8%A7%D8%B3%D8%B7%20%D8%B9%D8%A8%D8%AF%20%D8%A7%D9%84%D8%B5%D9%85%D8%AF.jpg",url:"https://backup.qurango.net/radio/translation_quran_hungarian",format:"mp3"},
+{name:"ترجمة معاني القرآن باللغة الهوسا- ",genre:"إذاعات ترجمة معاني القرآن",country:"مصر",logo:"https://tvquran.com/uploads/authors/images/%D8%B9%D8%A8%D8%AF%20%D8%A7%D9%84%D8%A8%D8%A7%D8%B3%D8%B7%20%D8%B9%D8%A8%D8%AF%20%D8%A7%D9%84%D8%B5%D9%85%D8%AF.jpg",url:"https://backup.qurango.net/radio/translation_quran_Hausa",format:"mp3"},
+{name:"ترجمة معاني القرآن باللغة اليونانية- ",genre:"إذاعات ترجمة معاني القرآن",country:"مصر",logo:"https://tvquran.com/uploads/authors/images/%D8%B9%D8%A8%D8%AF%20%D8%A7%D9%84%D8%A8%D8%A7%D8%B3%D8%B7%20%D8%B9%D8%A8%D8%AF%20%D8%A7%D9%84%D8%B5%D9%85%D8%AF.jpg",url:"https://backup.qurango.net/radio/translation_quran_greek",format:"mp3"},
+{name:"إذاعة الله أكبر",genre:"إذاعات تفسير القرآن الكريم",country:"السعودية",logo:"https://blogger.googleusercontent.com/img/a/AVvXsEg5Hl7hx2HV138SsNKS8w290DCvxc0qc8Yxy_Rl_7R2jnbyCV33eH-J2CjETiyJTZbtwWreYuajwsyram2Gi_p1o3VK2M8cjDjBgoSPzSt_1eyE473vnyoaBBNBMPCS4yrBrS4gaOx_XouSf7k29QgqUJt85mt5cCahIH--Ei_bpDPwthodvagIkqDA=s16000",url:"http://66.45.232.132:9996/stream?type=http&amp;nocache=248736",format:"mp3"},
+{name:"إذاعة التفسير",genre:"إذاعات تفسير القرآن الكريم",country:"السعودية",logo:"https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcT2VgfnpRter5mYSd84O6GpWe-ClJwS6xUOUg&s",url:"http://206.72.199.179:9992/stream?type=http&amp;nocache=343460",format:"mp3"},
+{name:"إذاعةتفسير القرآن الكريم",genre:"إذاعات تفسير القرآن الكريم",country:"السعودية",logo:"https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQqi-SlWX1s-LskSQ8zTJNKM4_M0RCUM5EDVw&s",url:"https://radio.alukah.net/tafsir",format:"mp3"},
+{name:"إذاعة تفسير الشيخ السعدي",genre:"إذاعات تفسير القرآن الكريم",country:"السعودية",logo:"https://quran-uni.com/wp-content/uploads/2023/01/QS-logo.png",url:"https://server03.quran-uni.com:7004/;*.mp3",format:"mp3"},
+{name:"اذاعة خواطر الشيخ محمد متولي الشعراوي",genre:"إذاعات تفسير القرآن الكريم",country:"مصر",logo:"https://pbs.twimg.com/profile_images/1347680672/______2_400x400.jpg",url:"https://3vh.liveradiu.com:8000/el-shaarawy.mp3",format:"mp3"},
+{name:"إذاعة تفسير القرآن الشعراوي و النابلسي",genre:"إذاعات تفسير القرآن الكريم",country:"مصر",logo:"https://static.mytuner.mobi/media/tvos_radios/9TeajPC25m.jpg",url:"http://104.7.66.64:8088/;?icy=http",format:"mp3"},
+{name:"إذاعة تفسير القران الكريم ",genre:"إذاعات تفسير القرآن الكريم",country:"مصر",logo:"https://mp3quran.net/img/logo2.png",url:"https://backup.qurango.net/radio/tafseer",format:"mp3"},
+{name:"المختصر في تفسير القرآن الكريم- ",genre:"إذاعات تفسير القرآن الكريم",country:"مصر",logo:"https://tvquran.com/uploads/authors/images/%D8%B9%D8%A8%D8%AF%20%D8%A7%D9%84%D8%A8%D8%A7%D8%B3%D8%B7%20%D8%B9%D8%A8%D8%AF%20%D8%A7%D9%84%D8%B5%D9%85%D8%AF.jpg",url:"https://backup.qurango.net/radio/mukhtasartafsir",format:"mp3"},
+{name:"تفسير القران الكريم-الخلاصة من تفسير الطبري- ",genre:"إذاعات تفسير القرآن الكريم",country:"مصر",logo:"https://tvquran.com/uploads/authors/images/%D8%B9%D8%A8%D8%AF%20%D8%A7%D9%84%D8%A8%D8%A7%D8%B3%D8%B7%20%D8%B9%D8%A8%D8%AF%20%D8%A7%D9%84%D8%B5%D9%85%D8%AF.jpg",url:"https://backup.qurango.net/radio/tabri",format:"mp3"},
+{name:"إذاعة القران الكريم الأردن",genre:"إذاعات دعوية",country:"الأردن",logo:"https://static.mytuner.mobi/media/tvos_radios/aaaywh8mgxpp.png",url:"https://jrtv-live.ercdn.net/jrradio/quranradio.m3u8",format:"mp3"},
+{name:"إذاعة الشارقة",genre:"إذاعات دعوية",country:"الإمارات العربية",logo:"https://cdn.onlineradiobox.com/img/l/6/87476.v2.png",url:"https://l3.itworkscdn.net/smcquranlive/quranradiolive/icecast.audio",format:"mp3"},
+{name:"إذاعة الرشد",genre:"إذاعات دعوية",country:"الإمارات العربية",logo:"https://cdn.onlineradiobox.com/img/l/4/115574.v2.png",url:"https://stream.zeno.fm/kk4c4a1eunhvv",format:"mp3"},
+{name:"إذاعة رياض الصالحين",genre:"إذاعات دعوية",country:"الإمارات العربية",logo:"https://riadalsaliheen.com/wp-content/uploads/2022/12/300-1.png",url:"https://s4.radio.co/s586ad278e/listen",format:"mp3"},
+{name:"إذاعة صوت الإسلام",genre:"إذاعات دعوية",country:"الإمارات العربية",logo:"https://static2.mytuner.mobi/media/tvos_radios/9bp7mhjcxadb.png",url:"https://stream.zeno.fm/t5gkwva794zuv",format:"mp3"},
+{name:"إذاعة القرآن الكريم الجزائر الرسمية",genre:"إذاعات دعوية",country:"الجزائر",logo:"https://cdn.onlineradiobox.com/img/l/6/20396.v11.png",url:"https://webradio.tda.dz/Coran_64K.mp3",format:"mp3"},
+{name:"إذاعة جو ديني",genre:"إذاعات دعوية",country:"الجزائر",logo:"https://static.mytuner.mobi/media/tvos_radios/fbd2h8jqh4fs.webp",url:"https://ice.creacast.com/jowradio-diny",format:"mp3"},
+{name:"إذاعة القرآن الكريم الجزائر ",genre:"إذاعات دعوية",country:"الجزائر",logo:"https://static.mytuner.mobi/media/tvos_radios/uy2KHCQF9W.png",url:"https://n01.radiojar.com/8s5u5tpdtwzuv?rj-tok=AAABjX-v_LkANtKCHylFIyVr_A&rj-ttl=5",format:"mp3"},
+{name:" إذاعة النسيم",genre:"إذاعات دعوية",country:"الجزائر",logo:"https://static.mytuner.mobi/media/tvos_radios/Kr85BzPASk.jpg",url:"https://stream.zeno.fm/9kgf4um33hhvv",format:"mp3"},
+{name:"اذاعة قناة مكة",genre:"إذاعات دعوية",country:"السعودية",logo:"https://makkahtv.tv/assets/images/makkah-channel-redcolor-1440-alpha-570x716.png",url:"https://r1.tarat.com:8202/;",format:"mp3"},
+{name:"اذاعة إقرأ",genre:"إذاعات دعوية",country:"السعودية",logo:"http://iqraa.com/images/lastlogo1.png",url:"https://iqraa-live.ercdn.net/iqraa/iqraa_576p.m3u8",format:"m3u8"},
+{name:"إذاعة نور على نور الإسلامية بالعربية",genre:"إذاعات دعوية",country:"السعودية",logo:"https://static.mytuner.mobi/media/tvos_radios/KUgEbmp6LK.jpg",url:"http://104.7.66.64:8011/;?icy=http",format:"mp3"},
+{name:" إذاعة قناة مكة",genre:"إذاعات دعوية",country:"السعودية",logo:"https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTa0DMYfuiDHfvabUsLdD9zSym0_0sFzvv0HQ&s",url:"http://n06.radiojar.com/4wqre23fytzuv?rj-ttl=5&amp;rj-tok=AAABguotuDAAoANqDhfcEbpmAg",format:"mp3"},
+{name:"إذاعة أهل القرآن",genre:"إذاعات دعوية",country:"السعودية",logo:"https://blogger.googleusercontent.com/img/a/AVvXsEi__GPzsusmmpw8E_uMUFWBNuk254ounE6CXxQEy0npsk7FYq9lf4-dt-oXVy62EYk-2As4Kbasw7-dKJIDAgPOHS8DmqNaqd4_X9-4qqou6udi7PWhBmZCJaOlRGlClys9crSfmQpM2jeZQ9mm9K5yMEgTDO22_OsLjQyV75hRX-Q1RMVBDTMm7a-i=s16000",url:"http://r7.tarat.com:8002/stream?type=http&amp;nocache=8",format:"mp3"},
+{name:"إذاعة الأنوار",genre:"إذاعات دعوية",country:"السعودية",logo:"https://zeno.fm/_next/image/?url=https%3A%2F%2Fimages.zeno.fm%2FzeyNIX6csXK6ilyrp3BbN2l-QH66MNr4TbvW_cBwGwg%2Frs%3Afit%3A240%3A240%2Fg%3Ace%3A0%3A0%2FaHR0cHM6Ly9zdHJlYW0tdG9vbHMuemVub21lZGlhLmNvbS9jb250ZW50L3N0YXRpb25zL2FneHpmbnBsYm04dGMzUmhkSE55TWdzU0NrRjFkR2hEYkdsbGJuUVlnSUN3MnVEUW13a01DeElPVTNSaGRHbHZibEJ5YjJacGJHVVlnSUN3bXRTbTZnc01vZ0VFZW1WdWJ3L2ltYWdlLz91cGRhdGVkPTE2NjYzNTAyMDEwMDA_dT01NzYwMjMx.webp&w=1200&q=100",url:"https://stream.zeno.fm/vfge7cdsqv8uv",format:"mp3"},
+{name:"إذاعة ضوت ورززات",genre:"إذاعات دعوية",country:"المغرب",logo:"https://static2.mytuner.mobi/media/tvos_radios/UY5AVNAAAR.jpg",url:"http://www.quran-radio.org:8002/stream",format:"mp3"},
+{name:"إذاعة جسور",genre:"إذاعات دعوية",country:"المغرب",logo:"https://static2.mytuner.mobi/media/tvos_radios/g9u5F8dCXt.png",url:"https://stream-152.zeno.fm/emqjxlmcq1avv?zs=iQz3-DZHRWySwnulzVqPGg",format:"mp3"},
+{name:"إذاعة أضواء",genre:"إذاعات دعوية",country:"المغرب",logo:"https://static.mytuner.mobi/media/tvos_radios/sax28w3r9x4a.png",url:"https://stream.zeno.fm/vrrtqsh0x1zuv",format:"mp3"},
+{name:"مركز المحاضرات الإسلامية",genre:"إذاعات دعوية",country:"المملكة المتحدة",logo:"https://onimgspace.s3.ap-south-1.amazonaws.com/new_images/radioapp_uapk_osr253372.jpg",url:"https://islamicl.radioca.st/;",format:"mp3"},
+{name:"إذاعة الزيتونة للقرآن الكريم",genre:"إذاعات دعوية",country:"تونس",logo:"https://static.mytuner.mobi/media/tvos_radios/xtxwjcjf2r8z.png",url:"https://stream.radiozitouna.tn/radio/8030/radio.mp3",format:"mp3"},
+{name:"إذاعة الإسلام",genre:"إذاعات دعوية",country:"جنوب إفريقيا",logo:"https://cdn.onlineradiobox.com/img/l/7/11797.v7.png",url:"http://listen.radioislam.org.za:8080/radioislam.mp3",format:"mp3"},
+{name:"إذاعة نابلس للقرآن الكريم",genre:"إذاعات دعوية",country:"فلسطين",logo:"https://cdn.onlineradiobox.com/img/l/2/25612.v1.png",url:"http://www.quran-radio.org:8080/;stream.mp3",format:"mp3"},
+{name:"إذاعة آيات القرآن الكريم",genre:"إذاعات دعوية",country:"لبنان",logo:"https://cdn.onlineradiobox.com/img/l/7/113617.v7.png",url:"https://stream-152.zeno.fm/1fatuk10fkhvv?zt=eyJhbGciOiJIUzI1NiJ9.eyJzdHJlYW0iOiIxZmF0dWsxMGZraHZ2IiwiaG9zdCI6InN0cmVhbS0xNTIuemVuby5mbSIsInJ0dGwiOjUsImp0aSI6Im04ZXhHMUx4U1BtbTJvU3A4OXJKcWciLCJpYXQiOjE3Mjc4NjQzNTEsImV4cCI6MTcyNzg2NDQxMX0.wCeeeKncP9_1V2kQyh11WRP0G6cpiNBjrLwPf-hczbo",format:"mp3"},
+{name:"إذاعة طريق الإرتقاء",genre:"إذاعات دعوية",country:"لبنان",logo:"https://play-lh.googleusercontent.com/WqAZIUM9xl1T9OihYxZysjILNkJwO2Lm3HvAil3TrDwew-q_C1b_RoUtbKpuMajWug",url:"https://stream-52.zeno.fm/bgspaw76srhvv?zs=MBhh5ywURHOauBox_5qxUg",format:"mp3"},
+{name:"اذاعة الفجر استماع مباشر من لبنان",genre:"إذاعات دعوية",country:"لبنان",logo:"https://www.ashefaa.com/quraan/xfajr-wallpaper3.jpg.pagespeed.ic.BW9zwBOm72.webp",url:"http://vps1.osina.cloud:9306/;.mp3",format:"mp3"},
+{name:"إذاعة نور الإيمان",genre:"إذاعات دعوية",country:"ليبيا",logo:"https://static.mytuner.mobi/media/tvos_radios/CXVBVHwBCh.png",url:"https://stream.zeno.fm/r6eprdta6nhvv",format:"mp3"},
+{name:"إذاعة طريق السلف",genre:"إذاعات دعوية",country:"ليبيا",logo:"https://guidetodawah.com/media/screenshot-2024-05-13-2003021767_showWebsiteThumb.png",url:"https://airtime.salafwayfm.ly/",format:"mp3"},
+{name:"إذاعة الكتاب والسنة من ليبيا",genre:"إذاعات دعوية",country:"ليبيا",logo:"https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEhqTTQXtlZ9L5RRP_MVoQcjrY0zDI8EHDaxCNpbfyjo4eyUxo0IfZCxQuJlD8G67kuoDs2Vkjull4iPI7EUX_2CFqgVIX8QNrxypXUmSHTWdJ_rtN3Kp3biS8mMC_Kf55pjKb4dGpHbSVo/s1600/542967_ico.png",url:"http://streaming1.kwsfm.ly:8681/stream",format:"mp3"},
+{name:"اذاعة القران الكريم من القاهرة",genre:"إذاعات دعوية",country:"مصر",logo:"https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRn8wgjjAHz2viOfZ-MsdmGG0zMgEnww3cCLg&s",url:"https://stream.radiojar.com/8s5u5tpdtwzuv",format:"mp3"},
+{name:"إذاعة  الإِبَانة الأولى",genre:"إذاعات دعوية تعليمية",country:"الجزائر",logo:"https://elibana.org/home/wp-content/uploads/2020/01/%D8%A7%D9%95%D8%B0%D8%A7%D8%B9%D8%A9-%D8%A7%D9%84%D8%A7%D9%95%D8%A8%D8%A7%D9%86%D8%A9-%D8%A7%D9%84%D8%B3%D9%84%D9%81%D9%8A%D8%A91.png",url:"https://radio.elibana.org/radio/8000/tasfia1",format:"mp3"},
+{name:"إذاعة  الإِبَانة الثانية",genre:"إذاعات دعوية تعليمية",country:"الجزائر",logo:"https://elibana.org/home/wp-content/uploads/2020/01/%D8%A7%D9%95%D8%B0%D8%A7%D8%B9%D8%A9-%D8%A7%D9%84%D8%A7%D9%95%D8%A8%D8%A7%D9%86%D8%A9-%D8%A7%D9%84%D8%B3%D9%84%D9%81%D9%8A%D8%A91.png",url:"https://radio.elibana.org/radio/8010/tasfia2",format:"mp3"},
+{name:"إذاعة ميراث الأنبياء",genre:"إذاعات دعوية تعليمية",country:"السعودية",logo:"https://www.miraath.net/radio/1/images/logo.png",url:"https://radio.hhost.host/8010/stream",format:"mp3"},
+{name:"النهج الواضح-الإذاعة الثانية",genre:"إذاعات دعوية تعليمية",country:"السعودية",logo:"https://static.mytuner.mobi/media/tvos_radios/z77fvxaxjhdl.jpg",url:"http://178.33.122.39:8001/stream",format:"mp3"},
+{name:"النهج الواضح-الإذاعة الأولى",genre:"إذاعات دعوية تعليمية",country:"السعودية",logo:"https://static.mytuner.mobi/media/tvos_radios/z77fvxaxjhdl.jpg",url:"https://node33.obviousapproach.com:9001/stream",format:""},
+{name:"إذاعة المجد العلمية",genre:"إذاعات دعوية تعليمية",country:"السعودية",logo:"https://almajdtv.com/wp-content/uploads/2021/07/cropped-Logo-almajd-1.png",url:"http://r7.tarat.com:8008/stream?type=http&amp;nocache=40",format:"mp3"},
+{name:"إذاعة ميراث الأنبياء",genre:"إذاعات دعوية تعليمية",country:"السعودية",logo:"https://www.miraath.net/radio/1/images/logo.png",url:"https://radio.al7eah.net/8010/stream",format:"mp3"},
+{name:"إذاعة الفكر والدعوة والثقافة الإسلامية",genre:"إذاعات دعوية تعليمية",country:"السعودية",logo:"https://a5dr-wp.fra1.cdn.digitaloceanspaces.com/bookidea/2020/10/70-Recovered-Recovered-1.jpg",url:"https://radio.alukah.net/alfikr",format:"mp3"},
+{name:" إذاعة التوعية الاجتماعية",genre:"إذاعات دعوية تعليمية",country:"السعودية",logo:"https://a5dr-wp.fra1.cdn.digitaloceanspaces.com/bookidea/2020/10/70-Recovered-Recovered-1.jpg",url:"https://radio.alukah.net/attawiyy",format:"mp3"},
+{name:"إذاعة المرأة المسلمة",genre:"إذاعات دعوية تعليمية",country:"السعودية",logo:"https://foulabook.com/storage/photo/97330.2019-07-27.1564228720.jpg",url:"https://radio.alukah.net/almarah",format:"mp3"},
+{name:" إذاعة المهارات الحياتية والعلوم التربوية",genre:"إذاعات دعوية تعليمية",country:"السعودية",logo:"https://www.neelwafurat.com/images/eg/abookstore/covers/carton/120/120728.jpg",url:"https://radio.alukah.net/maharat",format:"mp3"},
+{name:"شهر رمضان المبارك",genre:"إذاعات دعوية تعليمية",country:"السعودية",logo:"",url:"https://radio.alukah.net/ramdan",format:"mp3"},
+{name:" إذاعة الحج",genre:"إذاعات دعوية تعليمية",country:"السعودية",logo:"",url:"https://radio.alukah.net/hajj",format:"mp3"},
+{name:"إذاعة النهج الواضح",genre:"إذاعات دعوية تعليمية",country:"السعودية",logo:"https://guidetodawah.com/media/pdjfnpg8-400x4001763_showWebsiteThumb.jpg",url:"https://node33.obviousapproach.com:9000/stream",format:"mp3"},
+{name:"النهج الواضح: الإذاعة الثالثة",genre:"إذاعات دعوية تعليمية",country:"السعودية",logo:"https://guidetodawah.com/media/pdjfnpg8-400x4001763_showWebsiteThumb.jpg",url:"https://node33.obviousapproach.com:9002/stream",format:"mp3"},
+{name:"إذاعة خير أمة",genre:"إذاعات دعوية تعليمية",country:"السعودية",logo:"https://zeno.fm/_next/image/?url=https%3A%2F%2Fimages.zeno.fm%2FfaCerpaB65IKcu8gOLvoDigdVMNRd4xLyEFCZyauQGU%2Frs%3Afit%3A240%3A240%2Fg%3Ace%3A0%3A0%2FaHR0cHM6Ly9zdHJlYW0tdG9vbHMuemVub21lZGlhLmNvbS9jb250ZW50L3N0YXRpb25zL2FneHpmbnBsYm04dGMzUmhkSE55TWdzU0NrRjFkR2hEYkdsbGJuUVlnSUN3MnZmMF9RZ01DeElPVTNSaGRHbHZibEJ5YjJacGJHVVlnSUN3LXNHUjF3b01vZ0VFZW1WdWJ3L2ltYWdlLz91cGRhdGVkPTE2NjE2MzMwNTQwMDA_dT01NzU5Nzk0.webp&w=1200&q=100",url:"https://stream.zeno.fm/2mu5gr0gtv8uv",format:"mp3"},
+{name:"فضل شهر رمضان- ",genre:"إذاعات دعوية تعليمية",country:"مصر",logo:"https://tvquran.com/uploads/authors/images/%D8%B9%D8%A8%D8%AF%20%D8%A7%D9%84%D8%A8%D8%A7%D8%B3%D8%B7%20%D8%B9%D8%A8%D8%AF%20%D8%A7%D9%84%D8%B5%D9%85%D8%AF.jpg",url:"https://backup.qurango.net/radio/ramadan",format:"mp3"},
+{name:"إذاعة فاستقم كما أمرت للدروس الدينية",genre:"إذاعات دعوية تعليمية",country:"مصر",logo:"",url:"https://stream.zeno.fm/bp7kb5vgtg8uv",format:"mp3"},
+{name:"إذاعة طريق الإسلام أستراليا",genre:"إذاعات دعوية دولية",country:"أستراليا",logo:"https://cdn-profiles.tunein.com/s183931/images/logod.jpg?t=636368573486600000",url:"https://cast.tunzilla.com/http://islam2day.tv:9898/;",format:"mp3"},
+{name:"إذاعة الصوت الإسلامي أستراليا",genre:"إذاعات دعوية دولية",country:"أستراليا",logo:"https://cdn.onlineradiobox.com/img/l/5/27325.v6.png",url:"http://streamer3.rightclickitservices.com:9755/;",format:"mp3"},
+{name:" إذاعة الجالية الإسلامية بأستراليا",genre:"إذاعات دعوية دولية",country:"أستراليا",logo:"https://www.aicpmadih.de/wp-content/uploads/2019/12/%D8%A7%D9%84%D8%AC%D8%A7%D9%84%D9%8A%D8%A9-%D8%A7%D9%84%D8%A7%D8%B3%D9%84%D8%A7%D9%85%D9%8A%D8%A9-%D9%81%D9%8A-%D8%A7%D8%B3%D8%AA%D8%B1%D8%A7%D9%84%D9%8A%D8%A7.jpg",url:"http://www.2mfm.org.au:8000/live",format:"mp3"},
+{name:"إذاعة البيان من أستراليا",genre:"إذاعات دعوية دولية",country:"أستراليا",logo:"http://albayan.com.au/wp-content/uploads/2022/04/ablogo-cropped-sized-border-thin.png",url:"http://s9.viastreaming.net:9645/listen.mp3",format:"mp3"},
+{name:"Rádio Islâmica Português live",genre:"إذاعات دعوية دولية",country:"البرازيل",logo:"https://static2.mytuner.mobi/media/tvos_radios/xmcREkSfbC.jpg",url:"http://104.7.66.64:8086/;?icy=http",format:"mp3"},
+{name:"Radio Islámica Español live",genre:"إذاعات دعوية دولية",country:"الشيلي",logo:"https://static2.mytuner.mobi/media/tvos_radios/HEqMvQYJbd.jpg",url:"http://104.7.66.64:8093/;?icy=http",format:"mp3"},
+{name:"Radio Islam Chinese live",genre:"إذاعات دعوية دولية",country:"الصين",logo:"https://static2.mytuner.mobi/media/tvos_radios/wd5sWkTmw9.jpg",url:"http://104.7.66.64:8003/;?icy=http",format:"mp3"},
+{name:"Radio Islam auf Deutsch live",genre:"إذاعات دعوية دولية",country:"ألمانيا",logo:"https://static2.mytuner.mobi/media/tvos_radios/2HxBVQhz2H.jpg",url:"http://104.7.66.64:9011/;?icy=http",format:"mp3"},
+{name:"Buzz Islam live",genre:"إذاعات دعوية دولية",country:"المملكة المتحدة",logo:"https://static2.mytuner.mobi/media/tvos_radios/u5nllskhkezd.png",url:"https://tunein.buzzislam.com/radio/8000/radio.mp3",format:"mp3"},
+{name:"Islamic Hott Radio",genre:"إذاعات دعوية دولية",country:"الولايات الأمريكية المتحدة",logo:"https://cdn.onlineradiobox.com/img/l/6/94456.v10.png",url:"https://stream.zeno.fm/yeg36tua9a0uv",format:"mp3"},
+{name:"Radio Islamico",genre:"إذاعات دعوية دولية",country:"الولايات الأمريكية المتحدة",logo:"https://station-images.prod.radio-api.net/300/radioislamico.png?version=47b0923499b1480c830afadf976d1ec2",url:"http://66.45.232.134:9300/;",format:"mp3"},
+{name:"Islam WebRadio",genre:"إذاعات دعوية دولية",country:"الولايات الأمريكية المتحدة",logo:"https://static.mytuner.mobi/media/tvos_radios/xfgrn5yyuhtc.png",url:"http://79.137.32.10:8000/;",format:"mp3"},
+{name:"Islamic Bulletin from San Francisco live",genre:"إذاعات دعوية دولية",country:"الولايات الأمريكية المتحدة",logo:"https://static2.mytuner.mobi/media/tvos_radios/5Y5Qf2wdsZ.jpg",url:"http://104.7.66.64:8006/;?icy=http",format:"mp3"},
+{name:"Radio Islamica Italiana live",genre:"إذاعات دعوية دولية",country:"إيطاليا",logo:"https://static2.mytuner.mobi/media/tvos_radios/Tytmq3TTew.jpg",url:"http://104.7.66.64:8094/;",format:"mp3"},
+{name:"Isra FM",genre:"إذاعات دعوية دولية",country:"تركيا",logo:"https://cdn.onlineradiobox.com/img/l/0/69630.v8.png",url:"http://yayin1.canliyayin.org:8210/;",format:"mp3"},
+{name:"Channel Islam International live",genre:"إذاعات دعوية دولية",country:"جنوب إفريقيا",logo:"https://static2.mytuner.mobi/media/tvos_radios/zxqxyy34ftml.jpeg",url:"https://edge.iono.fm/xice/109_medium.aac?adToken=&ref=https://iframe.iono.fm/s/109",format:"AAC"},
+{name:"Francophone - Radio Islam en français live",genre:"إذاعات دعوية دولية",country:"فرنسا",logo:"https://static2.mytuner.mobi/media/tvos_radios/rudsX6SVqp.jpg",url:"http://104.7.66.64:8099/;?icy=http",format:"mp3"},
+{name:"إذاعة علوم القرآن الكريم",genre:"إذاعات علوم القرآن الكريم",country:"السعودية",logo:"https://play-lh.googleusercontent.com/WP6Jzp1Dyglo57Z7kZMBgm58AlZYKGb-fEYC6_OrLs_Quc9-I9JljuKVVdtnGVxFdGs",url:"https://radio.alukah.net/ulumalquran",format:"mp3"},
+{name:"إذاعة علي الحذيفي- قالون عن نافع",genre:"إذاعات مصاحف بروايات قالون عن نافع",country:"السعودية",logo:"https://tvquran.com/uploads/authors/images/%D8%B9%D9%84%D9%8A%20%D8%A7%D9%84%D8%AD%D8%B0%D9%8A%D9%81%D9%8A.jpg",url:"https://backup.qurango.net/radio/ali_alhuthaifi_qalon",format:"mp3"},
+{name:"إذاعة مفتاح السلطني- ابن ذكوان عن ابن عامر",genre:"إذاعات مصاحف برواية إبن ذكوان عن إبن عامر",country:"ليبيا",logo:"https://tvquran.com/uploads/authors/images/%D9%85%D9%81%D8%AA%D8%A7%D8%AD%20%D8%A7%D9%84%D8%B3%D9%84%D8%B7%D9%86%D9%8A.jpg",url:"https://backup.qurango.net/radio/muftah_alsaltany_ibn_thakwan_an_ibn_amr",format:"mp3"},
+{name:"إذاعة محمد عبدالحكيم سعيد العبدالله- البزي وقنبل عن ابن كثير",genre:"إذاعات مصاحف برواية البزي وقنبل عن ابن كثير",country:"سوريا",logo:"https://ar.assabile.com/media/person/200x256/mohamed-abdel-hakim-saad-al-abdullah.png",url:"https://backup.qurango.net/radio/mohammad_alabdullah_albizi",format:"mp3"},
+{name:"إذاعة الفاتح محمد الزبير- الدوري عن أبي عمرو",genre:"إذاعات مصاحف برواية الدوري عن أبي عمرو",country:"السودان",logo:"https://tvquran.com/uploads/authors/images/%D8%A7%D9%84%D9%81%D8%A7%D8%AA%D8%AD%20%D9%85%D8%AD%D9%85%D8%AF%20%D8%A7%D9%84%D8%B2%D8%A8%D9%8A%D8%B1.jpg",url:"https://backup.qurango.net/radio/alfateh_alzubair",format:"mp3"},
+{name:"إذاعة مفتاح السلطني- الدوري عن أبي عمرو",genre:"إذاعات مصاحف برواية الدوري عن أبي عمرو",country:"ليبيا",logo:"https://tvquran.com/uploads/authors/images/%D9%85%D9%81%D8%AA%D8%A7%D8%AD%20%D8%A7%D9%84%D8%B3%D9%84%D8%B7%D9%86%D9%8A.jpg",url:"https://backup.qurango.net/radio/muftah_alsaltany_aldori_an_abi_amr ",format:"mp3"},
+{name:"إذاعة محمد عبدالحكيم سعيد العبدالله- الدوري عن الكسائي",genre:"إذاعات مصاحف برواية الدوري عن الكسائي",country:"سوريا",logo:"https://ar.assabile.com/media/person/200x256/mohamed-abdel-hakim-saad-al-abdullah.png",url:"https://backup.qurango.net/radio/mohammad_alabdullah_aldorai",format:"mp3"},
+{name:"إذاعة مفتاح السلطني- الدوري عن الكسائي",genre:"إذاعات مصاحف برواية الدوري عن الكسائي",country:"ليبيا",logo:"https://tvquran.com/uploads/authors/images/%D9%85%D9%81%D8%AA%D8%A7%D8%AD%20%D8%A7%D9%84%D8%B3%D9%84%D8%B7%D9%86%D9%8A.jpg",url:"https://backup.qurango.net/radio/muftah_alsaltany_aldorai",format:"mp3"},
+{name:"إذاعة محمود الشيمي- الدوري عن الكسائي",genre:"إذاعات مصاحف برواية الدوري عن الكسائي",country:"مصر",logo:"https://ar.assabile.com/media/person/200x256/mahmoud-el-sheimy.png",url:"https://backup.qurango.net/radio/mahmood_alsheimy",format:"mp3"},
+{name:"إذاعة عبدالرشيد صوفي- السوسي عن أبي عمرو",genre:"إذاعات مصاحف برواية السوسي عن أبي عمرو",country:"الصومال",logo:"https://tvquran.com/uploads/authors/images/%D8%B9%D8%A8%D8%AF%20%D8%A7%D9%84%D8%B1%D8%B4%D9%8A%D8%AF%20%D8%A8%D9%86%20%D8%B9%D9%84%D9%8A%20%D8%B5%D9%88%D9%81%D9%8A.jpg",url:"https://backup.qurango.net/radio/abdulrasheed_soufi_assosi",format:"mp3"},
+{name:"إذاعة توفيق الصايغ- حفص عن عاصم",genre:"إذاعات مصاحف برواية حفص عن عاصم",country:"إرتيريا",logo:"https://tvquran.com/uploads/authors/images/%D8%AA%D9%88%D9%81%D9%8A%D9%82%20%D8%A7%D9%84%D8%B5%D8%A7%D9%8A%D8%BA.jpg",url:"https://backup.qurango.net/radio/tawfeeq_assayegh",format:"mp3"},
+{name:"إذاعة جمال شاكر عبدالله- حفص عن عاصم",genre:"إذاعات مصاحف برواية حفص عن عاصم",country:"الأردن",logo:"https://tvquran.com/uploads/authors/images/%D8%AC%D9%85%D8%A7%D9%84%20%D8%B4%D8%A7%D9%83%D8%B1%20%D8%B9%D8%A8%D8%AF%20%D8%A7%D9%84%D9%84%D9%87.jpg",url:"https://backup.qurango.net/radio/jamal_shaker_abdullah",format:"mp3"},
+{name:"إذاعة خليفة الطنيجي- حفص عن عاصم",genre:"إذاعات مصاحف برواية حفص عن عاصم",country:"الإمارات العربية",logo:"https://ar.assabile.com/media/person/200x256/khalifa-al-tunaiji.png",url:"https://backup.qurango.net/radio/khalifa_altunaiji",format:"mp3"},
+{name:"إذاعة صلاح بو خاطر- حفص عن عاصم",genre:"إذاعات مصاحف برواية حفص عن عاصم",country:"الإمارات العربية",logo:"https://tvquran.com/uploads/authors/images/%D8%B5%D9%84%D8%A7%D8%AD%20%D8%A8%D9%88%20%D8%AE%D8%A7%D8%B7%D8%B1.jpg",url:"https://backup.qurango.net/radio/slaah_bukhatir",format:"mp3"},
+{name:"إذاعة جمعان العصيمي- حفص عن عاصم",genre:"إذاعات مصاحف برواية حفص عن عاصم",country:"السعودية",logo:"https://tvquran.com/uploads/authors/images/%D8%AC%D9%85%D8%B9%D8%A7%D9%86%20%D8%A7%D9%84%D8%B9%D8%B5%D9%8A%D9%85%D9%8A.jpg",url:"https://backup.qurango.net/radio/jamaan_alosaimi",format:"mp3"},
+{name:"إذاعة خالد المهنا- حفص عن عاصم",genre:"إذاعات مصاحف برواية حفص عن عاصم",country:"السعودية",logo:"https://tvquran.com/uploads/authors/images/%D8%AE%D8%A7%D9%84%D8%AF%20%D8%A7%D9%84%D9%85%D9%87%D9%86%D8%A7.jpg",url:"https://backup.qurango.net/radio/khalid_almohana",format:"mp3"},
+{name:"إذاعة عادل الكلباني- حفص عن عاصم",genre:"إذاعات مصاحف برواية حفص عن عاصم",country:"السعودية",logo:"https://fr.assabile.com/media/person/200x256/adel-al-kalbani.png",url:"https://backup.qurango.net/radio/adel_alkhalbany",format:"mp3"},
+{name:"إذاعة عبدالرحمن الماجد- حفص عن عاصم",genre:"إذاعات مصاحف برواية حفص عن عاصم",country:"السعودية",logo:"https://tvquran.com/uploads/authors/images/%D8%B9%D8%A8%D8%AF%20%D8%A7%D9%84%D8%B1%D8%AD%D9%85%D9%86%20%D8%A7%D9%84%D9%85%D8%A7%D8%AC%D8%AF.jpg",url:"https://backup.qurango.net/radio/abdulrahman_almajed",format:"mp3"},
+{name:"إذاعة علي جابر- حفص عن عاصم",genre:"إذاعات مصاحف برواية حفص عن عاصم",country:"السعودية",logo:"https://tvquran.com/uploads/authors/images/%D8%B9%D9%84%D9%8A%20%D8%AC%D8%A7%D8%A8%D8%B1.jpg",url:"https://backup.qurango.net/radio/ali_jaber",format:"mp3"},
+{name:"إذاعة عماد زهير حافظ- حفص عن عاصم",genre:"إذاعات مصاحف برواية حفص عن عاصم",country:"السعودية",logo:"https://upload.wikimedia.org/wikipedia/commons/7/7d/%D8%A7%D9%84%D8%B4%D9%8A%D8%AE_%D8%B9%D9%85%D8%A7%D8%AF_%D8%B2%D9%87%D9%8A%D8%B1_%D8%AD%D8%A7%D9%81%D8%B8.jpg",url:"https://backup.qurango.net/radio/emad_hafez",format:"mp3"},
+{name:"إذاعة ماهر المعيقلي- حفص عن عاصم",genre:"إذاعات مصاحف برواية حفص عن عاصم",country:"السعودية",logo:"https://tvquran.com/uploads/authors/images/%D9%85%D8%A7%D9%87%D8%B1%20%D8%A7%D9%84%D9%85%D8%B9%D9%8A%D9%82%D9%84%D9%8A.jpg",url:"https://backup.qurango.net/radio/maher",format:"mp3"},
+{name:"إذاعة محمد أيوب- حفص عن عاصم",genre:"إذاعات مصاحف برواية حفص عن عاصم",country:"السعودية",logo:"https://tvquran.com/uploads/authors/images/%D9%85%D8%AD%D9%85%D8%AF%20%D8%A3%D9%8A%D9%88%D8%A8.jpg",url:"https://backup.qurango.net/radio/mohammed_ayyub",format:"mp3"},
+{name:"إذاعة محمد اللحيدان- حفص عن عاصم",genre:"إذاعات مصاحف برواية حفص عن عاصم",country:"السعودية",logo:"https://tvquran.com/uploads/authors/images/%D9%85%D8%AD%D9%85%D8%AF%20%D8%A7%D9%84%D9%84%D8%AD%D9%8A%D8%AF%D8%A7%D9%86.jpg",url:"https://backup.qurango.net/radio/mohammed_allohaidan",format:"mp3"},
+{name:"إذاعة معيض الحارثي- حفص عن عاصم",genre:"إذاعات مصاحف برواية حفص عن عاصم",country:"السعودية",logo:"https://tvquran.com/uploads/authors/images/author_default.png",url:"https://backup.qurango.net/radio/moeedh_alharthi",format:"mp3"},
+{name:"إذاعة موسى بلال- حفص عن عاصم",genre:"إذاعات مصاحف برواية حفص عن عاصم",country:"السعودية",logo:"https://tvquran.com/uploads/authors/images/%D9%85%D9%88%D8%B3%D9%89%20%D8%A8%D9%84%D8%A7%D9%84.jpg",url:"https://backup.qurango.net/radio/mousa_bilal",format:"mp3"},
+{name:"إذاعة ناصر القطامي- حفص عن عاصم",genre:"إذاعات مصاحف برواية حفص عن عاصم",country:"السعودية",logo:"https://tvquran.com/uploads/authors/images/%D9%86%D8%A7%D8%B5%D8%B1%20%D8%A7%D9%84%D9%82%D8%B7%D8%A7%D9%85%D9%8A.jpg",url:"https://backup.qurango.net/radio/nasser_alqatami",format:"mp3"},
+{name:"إذاعة نبيل الرفاعي- حفص عن عاصم",genre:"إذاعات مصاحف برواية حفص عن عاصم",country:"السعودية",logo:"https://tvquran.com/uploads/authors/images/%D9%86%D8%A8%D9%8A%D9%84%20%D8%A7%D9%84%D8%B1%D9%81%D8%A7%D8%B9%D9%8A.jpg",url:"https://backup.qurango.net/radio/nabil_al_rifay",format:"mp3"},
+{name:"إذاعة هاني الرفاعي- حفص عن عاصم",genre:"إذاعات مصاحف برواية حفص عن عاصم",country:"السعودية",logo:"https://tvquran.com/uploads/authors/images/%D9%87%D8%A7%D9%86%D9%8A%20%D8%A7%D9%84%D8%B1%D9%81%D8%A7%D8%B9%D9%8A.jpg",url:"https://backup.qurango.net/radio/hani_arrifai",format:"mp3"},
+{name:"إذاعة ياسر الدوسري- حفص عن عاصم",genre:"إذاعات مصاحف برواية حفص عن عاصم",country:"السعودية",logo:"https://tvquran.com/uploads/authors/images/%D9%8A%D8%A7%D8%B3%D8%B1%20%D8%A7%D9%84%D8%AF%D9%88%D8%B3%D8%B1%D9%8A.jpg",url:"https://backup.qurango.net/radio/yasser_aldosari",format:"mp3"},
+{name:"إذاعة يوسف الشويعي- حفص عن عاصم",genre:"إذاعات مصاحف برواية حفص عن عاصم",country:"السعودية",logo:"https://tvquran.com/uploads/authors/images/%D9%8A%D9%88%D8%B3%D9%81%20%D8%A7%D9%84%D8%B4%D9%88%D9%8A%D8%B9%D9%8A.jpg",url:"https://backup.qurango.net/radio/yousef_alshoaey",format:"mp3"},
+{name:"إذاعة أحمد الحواشي- حفص عن عاصم",genre:"إذاعات مصاحف برواية حفص عن عاصم",country:"السعودية",logo:"https://tvquran.com/uploads/authors/images/%D8%A3%D8%AD%D9%85%D8%AF%20%D8%A7%D9%84%D8%AD%D9%88%D8%A7%D8%B4%D9%8A.jpg",url:"https://backup.qurango.net/radio/ahmad_alhawashi",format:"mp3"},
+{name:"إذاعة أحمد العجمي- حفص عن عاصم",genre:"إذاعات مصاحف برواية حفص عن عاصم",country:"السعودية",logo:"https://tvquran.com/uploads/authors/images/%D8%A3%D8%AD%D9%85%D8%AF%20%D8%A8%D9%86%20%D8%B9%D9%84%D9%8A%20%D8%A7%D9%84%D8%B9%D8%AC%D9%85%D9%8A.jpg",url:"https://backup.qurango.net/radio/ahmad_alajmy",format:"mp3"},
+{name:"إذاعة أحمد ديبان- حفص عن عاصم",genre:"إذاعات مصاحف برواية حفص عن عاصم",country:"السعودية",logo:"https://ahmed-deban.com/Mktba/themes/deban2022/images/hed.png",url:"https://backup.qurango.net/radio/ahmad_deban",format:"mp3"},
+{name:"إذاعة إبراهيم الأخضر- حفص عن عاصم",genre:"إذاعات مصاحف برواية حفص عن عاصم",country:"السعودية",logo:"https://tvquran.com/uploads/authors/images/%D8%A5%D8%A8%D8%B1%D8%A7%D9%87%D9%8A%D9%85%20%D8%A7%D9%84%D8%A3%D8%AE%D8%B6%D8%B1.jpg",url:"https://backup.qurango.net/radio/ibrahim_alakdar",format:"mp3"},
+{name:"إذاعة بندر بليلة- حفص عن عاصم",genre:"إذاعات مصاحف برواية حفص عن عاصم",country:"السعودية",logo:"https://fr.assabile.com/media/person/200x256/bandar-balila.jpg",url:"https://backup.qurango.net/radio/bandar_balilah",format:"mp3"},
+{name:"إذاعة خالد الجليل- حفص عن عاصم",genre:"إذاعات مصاحف برواية حفص عن عاصم",country:"السعودية",logo:"https://tvquran.com/uploads/authors/images/%D8%AE%D8%A7%D9%84%D8%AF%20%D8%A7%D9%84%D8%AC%D9%84%D9%8A%D9%84.jpg",url:"https://backup.qurango.net/radio/khalid_aljileel",format:"mp3"},
+{name:"إذاعة خالد القحطاني- حفص عن عاصم",genre:"إذاعات مصاحف برواية حفص عن عاصم",country:"السعودية",logo:"https://tvquran.com/uploads/authors/images/%D8%AE%D8%A7%D9%84%D8%AF%20%D8%A7%D9%84%D9%82%D8%AD%D8%B7%D8%A7%D9%86%D9%8A.jpg",url:"https://backup.qurango.net/radio/khaled_alqahtani",format:"mp3"},
+{name:"إذاعة خالد عبدالكافي- حفص عن عاصم",genre:"إذاعات مصاحف برواية حفص عن عاصم",country:"السعودية",logo:"https://ar.assabile.com/media/person/200x256/khaled-abdelkafi.png",url:"https://backup.qurango.net/radio/khalid_abdulkafi",format:"mp3"},
+{name:"إذاعة زكي داغستاني- حفص عن عاصم",genre:"إذاعات مصاحف برواية حفص عن عاصم",country:"السعودية",logo:"https://zakidaghistani.com/images/index_10.jpg",url:"https://backup.qurango.net/radio/zaki_daghistani",format:"mp3"},
+{name:"إذاعة سعد الغامدي- حفص عن عاصم",genre:"إذاعات مصاحف برواية حفص عن عاصم",country:"السعودية",logo:"https://tvquran.com/uploads/authors/images/%D8%B3%D8%B9%D8%AF%20%D8%A7%D9%84%D8%BA%D8%A7%D9%85%D8%AF%D9%8A.jpg",url:"https://backup.qurango.net/radio/saad_alghamdi",format:"mp3"},
+{name:"إذاعة سعود الشريم- حفص عن عاصم",genre:"إذاعات مصاحف برواية حفص عن عاصم",country:"السعودية",logo:"https://tvquran.com/uploads/authors/images/%D8%B3%D8%B9%D9%88%D8%AF%20%D8%A7%D9%84%D8%B4%D8%B1%D9%8A%D9%85.jpg",url:"https://backup.qurango.net/radio/saud_alshuraim",format:"mp3"},
+{name:"إذاعة سهل ياسين- حفص عن عاصم",genre:"إذاعات مصاحف برواية حفص عن عاصم",country:"السعودية",logo:"https://ar.assabile.com/media/person/200x256/sahl-yassin.png",url:"https://backup.qurango.net/radio/sahl_yassin",format:"mp3"},
+{name:"إذاعة شيخ أبو بكر الشاطري- حفص عن عاصم",genre:"إذاعات مصاحف برواية حفص عن عاصم",country:"السعودية",logo:"https://tvquran.com/uploads/authors/images/%D8%B4%D9%8A%D8%AE%20%D8%A3%D8%A8%D9%88%20%D8%A8%D9%83%D8%B1%20%D8%A7%D9%84%D8%B4%D8%A7%D8%B7%D8%B1%D9%8A.jpg",url:"https://backup.qurango.net/radio/shaik_abu_bakr_al_shatri",format:"mp3"},
+{name:"إذاعة صلاح البدير- حفص عن عاصم",genre:"إذاعات مصاحف برواية حفص عن عاصم",country:"السعودية",logo:"https://tvquran.com/uploads/authors/images/%D8%B5%D9%84%D8%A7%D8%AD%20%D8%A7%D9%84%D8%A8%D8%AF%D9%8A%D8%B1.jpg",url:"https://backup.qurango.net/radio/salah_albudair",format:"mp3"},
+{name:"إذاعة عادل ريان- حفص عن عاصم",genre:"إذاعات مصاحف برواية حفص عن عاصم",country:"السعودية",logo:"https://tvquran.com/uploads/authors/images/%D8%B9%D8%A7%D8%AF%D9%84%20%D8%B1%D9%8A%D8%A7%D9%86.jpg",url:"https://backup.qurango.net/radio/adel_ryyan",format:"mp3"},
+{name:"إذاعة عبدالبارئ الثبيتي- حفص عن عاصم",genre:"إذاعات مصاحف برواية حفص عن عاصم",country:"السعودية",logo:"https://fr.assabile.com/media/person/200x256/abdul-bari-ath-thobaity.png",url:"https://backup.qurango.net/radio/abdelbari_altoubayti",format:"mp3"},
+{name:"إذاعة عبدالرحمن السديس- حفص عن عاصم",genre:"إذاعات مصاحف برواية حفص عن عاصم",country:"السعودية",logo:"https://tvquran.com/uploads/authors/images/%D8%B9%D8%A8%D8%AF%20%D8%A7%D9%84%D8%B1%D8%AD%D9%85%D9%86%20%D8%A7%D9%84%D8%B3%D8%AF%D9%8A%D8%B3.jpg",url:"https://backup.qurango.net/radio/abdulrahman_alsudaes",format:"mp3"},
+{name:"إذاعة عبدالعزيز الأحمد- حفص عن عاصم",genre:"إذاعات مصاحف برواية حفص عن عاصم",country:"السعودية",logo:"https://tvquran.com/uploads/authors/images/%D8%B9%D8%A8%D8%AF%20%D8%A7%D9%84%D8%B9%D8%B2%D9%8A%D8%B2%20%D8%A7%D9%84%D8%A3%D8%AD%D9%85%D8%AF.jpg",url:"https://backup.qurango.net/radio/abdul_aziz_alahmad",format:"mp3"},
+{name:"إذاعة عبدالله الخلف- حفص عن عاصم",genre:"إذاعات مصاحف برواية حفص عن عاصم",country:"السعودية",logo:"https://tvquran.com/uploads/authors/images/%D8%B9%D8%A8%D8%AF%20%D8%A7%D9%84%D9%84%D9%87%20%D8%AE%D9%84%D9%81.jpg",url:"https://backup.qurango.net/radio/abdullah_alkhalaf",format:"mp3"},
+{name:"إذاعة عبدالله المطرود- حفص عن عاصم",genre:"إذاعات مصاحف برواية حفص عن عاصم",country:"السعودية",logo:"https://tvquran.com/uploads/authors/images/%D8%B9%D8%A8%D8%AF%20%D8%A7%D9%84%D9%84%D9%87%20%D8%A7%D9%84%D9%85%D8%B7%D8%B1%D9%88%D8%AF.jpg",url:"https://backup.qurango.net/radio/abdullah_almattrod",format:"mp3"},
+{name:"إذاعة عبدالله الموسى- حفص عن عاصم",genre:"إذاعات مصاحف برواية حفص عن عاصم",country:"السعودية",logo:"https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSuAKz85q7pDgyGyjjxwZSveH5lyNQLf3VmLw&s",url:"https://backup.qurango.net/radio/abdullah_almousa",format:"mp3"},
+{name:"إذاعة عبدالله بصفر- حفص عن عاصم",genre:"إذاعات مصاحف برواية حفص عن عاصم",country:"السعودية",logo:"https://tvquran.com/uploads/authors/images/%D8%B9%D8%A8%D8%AF%20%D8%A7%D9%84%D9%84%D9%87%20%D8%A8%D8%B5%D9%81%D8%B1.jpg",url:"https://backup.qurango.net/radio/abdullah_basfer",format:"mp3"},
+{name:"إذاعة عبدالله خياط- حفص عن عاصم",genre:"إذاعات مصاحف برواية حفص عن عاصم",country:"السعودية",logo:"https://tvquran.com/uploads/authors/images/%D8%B9%D8%A8%D8%AF%20%D8%A7%D9%84%D9%84%D9%87%20%D8%AE%D9%8A%D8%A7%D8%B7.jpg",url:"https://backup.qurango.net/radio/abdullah_khayyat",format:"mp3"},
+{name:"إذاعة عبدالله عواد الجهني- حفص عن عاصم",genre:"إذاعات مصاحف برواية حفص عن عاصم",country:"السعودية",logo:"https://tvquran.com/uploads/authors/images/%D8%B9%D8%A8%D8%AF%20%D8%A7%D9%84%D9%84%D9%87%20%D8%A7%D9%84%D8%AC%D9%87%D9%86%D9%8A(1).jpg",url:"https://backup.qurango.net/radio/abdullah_aljohany",format:"mp3"},
+{name:"إذاعة عبدالمحسن الحارثي- حفص عن عاصم",genre:"إذاعات مصاحف برواية حفص عن عاصم",country:"السعودية",logo:"https://tvquran.com/uploads/authors/images/%D8%B9%D8%A8%D8%AF%20%D8%A7%D9%84%D9%85%D8%AD%D8%B3%D9%86%20%D8%A7%D9%84%D8%AD%D8%A7%D8%B1%D8%AB%D9%8A.jpg",url:"https://backup.qurango.net/radio/abdulmohsin_alharthy",format:"mp3"},
+{name:"إذاعة عبدالمحسن العبيكان- حفص عن عاصم",genre:"إذاعات مصاحف برواية حفص عن عاصم",country:"السعودية",logo:"https://tvquran.com/uploads/authors/images/%D8%B9%D8%A8%D8%AF%D8%A7%D9%84%D9%85%D8%AD%D8%B3%D9%86%20%D8%A7%D9%84%D8%B9%D8%A8%D9%8A%D9%83%D8%A7%D9%86.jpg",url:"https://backup.qurango.net/radio/abdulmohsin_alobaikan",format:"mp3"},
+{name:"إذاعة عبدالمحسن القاسم- حفص عن عاصم",genre:"إذاعات مصاحف برواية حفص عن عاصم",country:"السعودية",logo:"https://tvquran.com/uploads/authors/images/%D8%B9%D8%A8%D8%AF%20%D8%A7%D9%84%D9%85%D8%AD%D8%B3%D9%86%20%D8%A7%D9%84%D9%82%D8%A7%D8%B3%D9%85.jpg",url:"https://backup.qurango.net/radio/abdulmohsen_alqasim",format:"mp3"},
+{name:"إذاعة عبدالودود حنيف- حفص عن عاصم",genre:"إذاعات مصاحف برواية حفص عن عاصم",country:"السعودية",logo:"https://ar.assabile.com/media/person/200x256/abdul-wadud-haneef.png",url:"https://backup.qurango.net/radio/abdulwadood_haneef",format:"mp3"},
+{name:"إذاعة علي بن عبدالرحمن الحذيفي- حفص عن عاصم",genre:"إذاعات مصاحف برواية حفص عن عاصم",country:"السعودية",logo:"https://static.islamway.net/uploads/authors/_40x40/ali_hothifi.jpg",url:"https://backup.qurango.net/radio/ali_alhuthaifi",format:"mp3"},
+{name:"إذاعة ماجد الزامل- حفص عن عاصم",genre:"إذاعات مصاحف برواية حفص عن عاصم",country:"السعودية",logo:"https://tvquran.com/uploads/authors/images/%D9%85%D8%A7%D8%AC%D8%AF%20%D8%A7%D9%84%D8%B2%D8%A7%D9%85%D9%84.jpg",url:"https://backup.qurango.net/radio/majed_alzamel",format:"mp3"},
+{name:"إذاعة محمد أيوب - قراءة متميزة-- حفص عن عاصم",genre:"إذاعات مصاحف برواية حفص عن عاصم",country:"السعودية",logo:"https://tvquran.com/uploads/authors/images/%D9%85%D8%AD%D9%85%D8%AF%20%D8%A3%D9%8A%D9%88%D8%A8.jpg",url:"https://backup.qurango.net/radio/ayyoub2",format:"mp3"},
+{name:"إذاعة ناصر العصفور- حفص عن عاصم",genre:"إذاعات مصاحف برواية حفص عن عاصم",country:"السعودية",logo:"https://surah.me/uploads/reciters/2023_04_26_11_35_33_145107.jpg",url:"https://backup.qurango.net/radio/nasser_alosfor",format:"mp3"},
+{name:"إذاعة ناصر الماجد- حفص عن عاصم",genre:"إذاعات مصاحف برواية حفص عن عاصم",country:"السعودية",logo:"https://upload.wikimedia.org/wikipedia/ar/6/63/%D8%B5%D9%88%D8%B1%D8%A9_%D8%B4%D8%AE%D8%B5%D9%8A%D8%A9_%D9%86%D8%A7%D8%B5%D8%B1_%D8%A7%D9%84%D9%85%D8%A7%D8%AC%D8%AF.jpg",url:"https://backup.qurango.net/radio/nasser_almajed",format:"mp3"},
+{name:"إذاعة هيثم الجدعاني- حفص عن عاصم",genre:"إذاعات مصاحف برواية حفص عن عاصم",country:"السعودية",logo:"https://haithamaljadani.com/wp-content/uploads/2024/03/Haitham_Pic.png",url:"https://backup.qurango.net/radio/hitham_aljadani",format:"mp3"},
+{name:"صالح الهبدان- حفص عن عاصم",genre:"إذاعات مصاحف برواية حفص عن عاصم",country:"السعودية",logo:"https://ar.assabile.com/media/person/200x256/saleh-al-habdan.jpg",url:"https://backup.qurango.net/radio/saleh_alhabdan",format:"mp3"},
+{name:"إذاعة محمد عبدالكريم- حفص عن عاصم",genre:"إذاعات مصاحف برواية حفص عن عاصم",country:"السودان",logo:"https://tvquran.com/uploads/authors/images/%D9%85%D8%AD%D9%85%D8%AF%20%D8%B9%D8%A8%D8%AF%20%D8%A7%D9%84%D9%83%D8%B1%D9%8A%D9%85.jpg",url:"https://backup.qurango.net/radio/mohammad_abdullkarem",format:"mp3"},
+{name:"إذاعة الزين محمد أحمد- حفص عن عاصم",genre:"إذاعات مصاحف برواية حفص عن عاصم",country:"السودان",logo:"https://tvquran.com/uploads/authors/images/%D8%A7%D9%84%D8%B2%D9%8A%D9%86%20%D9%85%D8%AD%D9%85%D8%AF%20%D8%A3%D8%AD%D9%85%D8%AF.jpg",url:"https://backup.qurango.net/radio/alzain_mohammad_ahmad",format:"mp3"},
+{name:"إذاعة مصطفى رعد العزاوي- حفص عن عاصم",genre:"إذاعات مصاحف برواية حفص عن عاصم",country:"العراق",logo:"https://tvquran.com/uploads/authors/images/%D9%85%D8%B5%D8%B7%D9%81%D9%89%20%D8%A8%D9%86%20%D8%B1%D8%B9%D8%AF%20%D8%A7%D9%84%D8%B9%D8%B2%D8%A7%D9%88%D9%8A.jpg",url:"https://backup.qurango.net/radio/mustafa_raad_alazawy",format:"mp3"},
+{name:"إذاعة نعمة الحسان- حفص عن عاصم",genre:"إذاعات مصاحف برواية حفص عن عاصم",country:"العراق",logo:"https://ar.assabile.com/media/person/200x256/neamah-al-hassan.png",url:"https://backup.qurango.net/radio/neamah_alhassan",format:"mp3"},
+{name:"إذاعة شيرزاد عبدالرحمن طاهر- حفص عن عاصم",genre:"إذاعات مصاحف برواية حفص عن عاصم",country:"العراق",logo:"https://tvquran.com/uploads/authors/images/%D8%B4%D9%8A%D8%B1%D8%B2%D8%A7%D8%AF%20%D8%B7%D8%A7%D9%87%D8%B1.jpg",url:"https://backup.qurango.net/radio/shirazad_taher",format:"mp3"},
+{name:"إذاعة أحمد الطرابلسي- حفص عن عاصم",genre:"إذاعات مصاحف برواية حفص عن عاصم",country:"الكويت",logo:"https://tvquran.com/uploads/authors/images/%D8%A3%D8%AD%D9%85%D8%AF%20%D8%AE%D8%B6%D8%B1%20%D8%A7%D9%84%D8%B7%D8%B1%D8%A7%D8%A8%D9%84%D8%B3%D9%8A.jpg",url:"https://backup.qurango.net/radio/ahmed_altrabulsi",format:"mp3"},
+{name:"إذاعة عبدالله الكندري- حفص عن عاصم",genre:"إذاعات مصاحف برواية حفص عن عاصم",country:"الكويت",logo:"https://tvquran.com/uploads/authors/images/%D8%B9%D8%A8%D8%AF%D8%A7%D9%84%D9%84%D9%87%20%D8%A7%D9%84%D9%83%D9%86%D8%AF%D8%B1%D9%8A.jpg",url:"https://backup.qurango.net/radio/abdullah_alkandari",format:"mp3"},
+{name:"إذاعة محمود الرفاعي- حفص عن عاصم",genre:"إذاعات مصاحف برواية حفص عن عاصم",country:"الكويت",logo:"https://tvquran.com/uploads/authors/images/%D9%85%D8%AD%D9%85%D9%88%D8%AF%20%D8%A7%D9%84%D8%B1%D9%81%D8%A7%D8%B9%D9%8A.jpg",url:"https://backup.qurango.net/radio/mahmood_al_rifai",format:"mp3"},
+{name:"إذاعة مشاري العفاسي- حفص عن عاصم",genre:"إذاعات مصاحف برواية حفص عن عاصم",country:"الكويت",logo:"https://tvquran.com/uploads/authors/images/%D9%85%D8%B4%D8%A7%D8%B1%D9%8A%20%D8%A7%D9%84%D8%B9%D9%81%D8%A7%D8%B3%D9%8A.jpg",url:"https://backup.qurango.net/radio/mishary_alafasi",format:"mp3"},
+{name:"إذاعة صلاح الهاشم- حفص عن عاصم",genre:"إذاعات مصاحف برواية حفص عن عاصم",country:"الكويت",logo:"https://www.assabile.com/media/person/200x256/salah-al-hashem.png",url:"https://backup.qurango.net/radio/salah_alhashim",format:"mp3"},
+{name:"إذاعة محمد عثمان خان- حفص عن عاصم",genre:"إذاعات مصاحف برواية حفص عن عاصم",country:"الهند",logo:"https://tvquran.com/uploads/authors/images/%D9%85%D8%AD%D9%85%D8%AF%20%D8%B9%D8%AB%D9%85%D8%A7%D9%86%20%D8%AE%D8%A7%D9%86.jpg",url:"https://backup.qurango.net/radio/mohammed_osman_khan",format:"mp3"},
+{name:"إذاعة فارس عباد- حفص عن عاصم",genre:"إذاعات مصاحف برواية حفص عن عاصم",country:"اليمن",logo:"https://tvquran.com/uploads/authors/images/%D9%81%D8%A7%D8%B1%D8%B3%20%D8%B9%D8%A8%D8%A7%D8%AF.jpg",url:"https://backup.qurango.net/radio/fares_abbad",format:"mp3"},
+{name:"إذاعة يوسف بن نوح أحمد- حفص عن عاصم",genre:"إذاعات مصاحف برواية حفص عن عاصم",country:"اليمن",logo:"https://tvquran.com/uploads/authors/images/%D9%8A%D9%88%D8%B3%D9%81%20%D9%86%D9%88%D8%AD%20%D8%A3%D8%AD%D9%85%D8%AF.jpg",url:"https://backup.qurango.net/radio/yousef_bin_noah_ahmad",format:"mp3"},
+{name:"إذاعة إدريس أبكر- حفص عن عاصم",genre:"إذاعات مصاحف برواية حفص عن عاصم",country:"اليمن",logo:"https://tvquran.com/uploads/authors/images/%D8%A5%D8%AF%D8%B1%D9%8A%D8%B3%20%D8%A3%D8%A8%D9%83%D8%B1.jpg",url:"https://backup.qurango.net/radio/idrees_abkr",format:"mp3"},
+{name:"إذاعة محمد صالح عالم شاه- حفص عن عاصم",genre:"إذاعات مصاحف برواية حفص عن عاصم",country:"باكستان",logo:"https://ar.assabile.com/media/person/200x256/mohamed-saleh-alem-shah.png",url:"https://backup.qurango.net/radio/mohammad_saleh_alim_shah",format:"mp3"},
+{name:"إذاعة ماهر شخاشيرو- حفص عن عاصم",genre:"إذاعات مصاحف برواية حفص عن عاصم",country:"سوريا",logo:"https://tvquran.com/uploads/authors/images/%D9%85%D8%A7%D9%87%D8%B1%20%D8%B4%D8%AE%D8%A7%D8%B4%D9%8A%D8%B1%D9%88.jpg",url:"https://backup.qurango.net/radio/maher_shakhashero",format:"mp3"},
+{name:"إذاعة يحيى حوا- حفص عن عاصم",genre:"إذاعات مصاحف برواية حفص عن عاصم",country:"سوريا",logo:"https://tvquran.com/uploads/authors/images/%D9%8A%D8%AD%D9%8A%D9%89%20%D8%AD%D9%88%D8%A7.jpg",url:"https://backup.qurango.net/radio/yahya_hawwa",format:"mp3"},
+{name:"إذاعة عبدالهادي أحمد كناكري- حفص عن عاصم",genre:"إذاعات مصاحف برواية حفص عن عاصم",country:"سوريا",logo:"https://tvquran.com/uploads/authors/images/%D8%B9%D8%A8%D8%AF%20%D8%A7%D9%84%D9%87%D8%A7%D8%AF%D9%8A%20%D9%83%D9%86%D8%A7%D9%83%D8%B1%D9%8A.jpg",url:"https://backup.qurango.net/radio/abdulhadi_kanakeri",format:"mp3"},
+{name:"إذاعة محمد رشاد الشريف- حفص عن عاصم",genre:"إذاعات مصاحف برواية حفص عن عاصم",country:"فلسطين",logo:"https://tvquran.com/uploads/authors/images/%D9%85%D8%AD%D9%85%D8%AF%20%D8%B1%D8%B4%D8%A7%D8%AF%20%D8%A7%D9%84%D8%B4%D8%B1%D9%8A%D9%81.jpg",url:"https://backup.qurango.net/radio/mohammad_rashad_alshareef",format:"mp3"},
+{name:"إذاعة مفتاح السلطني- حفص عن عاصم",genre:"إذاعات مصاحف برواية حفص عن عاصم",country:"ليبيا",logo:"https://tvquran.com/uploads/authors/images/%D9%85%D9%81%D8%AA%D8%A7%D8%AD%20%D8%A7%D9%84%D8%B3%D9%84%D8%B7%D9%86%D9%8A.jpg",url:"https://backup.qurango.net/radio/muftah_alsaltany",format:"mp3"},
+{name:"إذاعة أحمد عامر- حفص عن عاصم",genre:"إذاعات مصاحف برواية حفص عن عاصم",country:"مصر",logo:"https://tvquran.com/uploads/authors/images/%D8%A3%D8%AD%D9%85%D8%AF%20%D8%B9%D8%A7%D9%85%D8%B1.jpg",url:"https://backup.qurango.net/radio/ahmed_amer",format:"mp3"},
+{name:"إذاعة حاتم فريد الواعر- حفص عن عاصم",genre:"إذاعات مصاحف برواية حفص عن عاصم",country:"مصر",logo:"https://tvquran.com/uploads/authors/images/%D8%AD%D8%A7%D8%AA%D9%85%20%D9%81%D8%B1%D9%8A%D8%AF%20%D8%A7%D9%84%D9%88%D8%A7%D8%B9%D8%B1.jpg",url:"https://backup.qurango.net/radio/hatem_fareed_alwaer",format:"mp3"},
+{name:"إذاعة علي حجاج السويسي- حفص عن عاصم",genre:"إذاعات مصاحف برواية حفص عن عاصم",country:"مصر",logo:"https://static.islamway.net/uploads/authors/_40x40/ali-hajjaj-al-suwaisy.JPG",url:"https://backup.qurango.net/radio/ali_hajjaj_alsouasi",format:"mp3"},
+{name:"إذاعة محمد الطبلاوي- حفص عن عاصم",genre:"إذاعات مصاحف برواية حفص عن عاصم",country:"مصر",logo:"https://tvquran.com/uploads/authors/images/%D9%85%D8%AD%D9%85%D8%AF%20%D9%85%D8%AD%D9%85%D9%88%D8%AF%20%D8%A7%D9%84%D8%B7%D8%A8%D9%84%D8%A7%D9%88%D9%8A.jpg",url:"https://backup.qurango.net/radio/mohammad_altablaway",format:"mp3"},
+{name:"إذاعة محمد جبريل- حفص عن عاصم",genre:"إذاعات مصاحف برواية حفص عن عاصم",country:"مصر",logo:"https://tvquran.com/uploads/authors/images/%D9%85%D8%AD%D9%85%D8%AF%20%D8%AC%D8%A8%D8%B1%D9%8A%D9%84.jpg",url:"https://backup.qurango.net/radio/mohammed_jibreel",format:"mp3"},
+{name:"إذاعة محمد صديق المنشاوي- حفص عن عاصم",genre:"إذاعات مصاحف برواية حفص عن عاصم",country:"مصر",logo:"https://tvquran.com/uploads/authors/images/%D9%85%D8%AD%D9%85%D8%AF%20%D8%B5%D8%AF%D9%8A%D9%82%20%D8%A7%D9%84%D9%85%D9%86%D8%B4%D8%A7%D9%88%D9%8A%202.jpg",url:"https://backup.qurango.net/radio/mohammed_siddiq_alminshawi",format:"mp3"},
+{name:"إذاعة محمود خليل الحصري- حفص عن عاصم",genre:"إذاعات مصاحف برواية حفص عن عاصم",country:"مصر",logo:"https://tvquran.com/uploads/authors/images/%D9%85%D8%AD%D9%85%D9%88%D8%AF%20%D8%AE%D9%84%D9%8A%D9%84%20%D8%A7%D9%84%D8%AD%D8%B5%D8%B1%D9%8A.jpg",url:"https://backup.qurango.net/radio/mahmoud_khalil_alhussary",format:"mp3"},
+{name:"إذاعة محمود علي البنا- حفص عن عاصم",genre:"إذاعات مصاحف برواية حفص عن عاصم",country:"مصر",logo:"https://tvquran.com/uploads/authors/images/%D9%85%D8%AD%D9%85%D9%88%D8%AF%20%D8%B9%D9%84%D9%8A%20%D8%A7%D9%84%D8%A8%D9%86%D8%A7.jpg",url:"https://backup.qurango.net/radio/mahmoud_ali__albanna",format:"mp3"},
+{name:"إذاعة مصطفى إسماعيل- حفص عن عاصم",genre:"إذاعات مصاحف برواية حفص عن عاصم",country:"مصر",logo:"https://tvquran.com/uploads/authors/images/%D9%85%D8%B5%D8%B7%D9%81%D9%89%20%D8%A5%D8%B3%D9%85%D8%A7%D8%B9%D9%8A%D9%84.jpg",url:"https://backup.qurango.net/radio/mustafa_ismail",format:"mp3"},
+{name:"إذاعة مصطفى اللاهوني- حفص عن عاصم",genre:"إذاعات مصاحف برواية حفص عن عاصم",country:"مصر",logo:"https://ar.assabile.com/media/person/200x256/mustapha-al-lahouni.png",url:"https://backup.qurango.net/radio/mustafa_allahoni",format:"mp3"},
+{name:"إذاعة ياسر القرشي- حفص عن عاصم",genre:"إذاعات مصاحف برواية حفص عن عاصم",country:"مصر",logo:"https://tvquran.com/uploads/authors/images/%D9%8A%D8%A7%D8%B3%D8%B1%20%D8%A7%D9%84%D9%82%D8%B1%D8%B4%D9%8A.jpg",url:"https://backup.qurango.net/radio/yasser_alqurashi",format:"mp3"},
+{name:"آيات السكينة- حفص عن عاصم",genre:"إذاعات مصاحف برواية حفص عن عاصم",country:"مصر",logo:"https://tvquran.com/uploads/authors/images/%D8%B9%D8%A8%D8%AF%20%D8%A7%D9%84%D8%A8%D8%A7%D8%B3%D8%B7%20%D8%B9%D8%A8%D8%AF%20%D8%A7%D9%84%D8%B5%D9%85%D8%AF.jpg",url:"https://backup.qurango.net/radio/sakeenah",format:"mp3"},
+{name:"إذاعة أحمد خليل شاهين- حفص عن عاصم",genre:"إذاعات مصاحف برواية حفص عن عاصم",country:"مصر",logo:"https://tvquran.com/uploads/authors/images/%D8%A3%D8%AD%D9%85%D8%AF%20%D8%AE%D9%84%D9%8A%D9%84%20%D8%B4%D8%A7%D9%87%D9%8A%D9%86.jpg",url:"https://backup.qurango.net/radio/ahmad_shaheen",format:"mp3"},
+{name:"إذاعة أحمد صابر- حفص عن عاصم",genre:"إذاعات مصاحف برواية حفص عن عاصم",country:"مصر",logo:"https://tvquran.com/uploads/authors/images/%D8%A3%D8%AD%D9%85%D8%AF%20%D8%B5%D8%A7%D8%A8%D8%B1.jpg",url:"https://backup.qurango.net/radio/ahmad_saber",format:"mp3"},
+{name:"إذاعة أحمد نعينع- حفص عن عاصم",genre:"إذاعات مصاحف برواية حفص عن عاصم",country:"مصر",logo:"https://tvquran.com/uploads/authors/images/%D8%A3%D8%AD%D9%85%D8%AF%20%D9%86%D8%B9%D9%8A%D9%86%D8%B9.jpg",url:"https://backup.qurango.net/radio/ahmad_nauina",format:"mp3"},
+{name:"إذاعة أكرم العلاقمي- حفص عن عاصم",genre:"إذاعات مصاحف برواية حفص عن عاصم",country:"مصر",logo:"https://tvquran.com/uploads/authors/images/%D8%A3%D9%83%D8%B1%D9%85%20%D8%A7%D9%84%D8%B9%D9%84%D8%A7%D9%82%D9%85%D9%8A.jpg",url:"https://backup.qurango.net/radio/akram_alalaqmi",format:"mp3"},
+{name:"إذاعة سيد رمضان- حفص عن عاصم",genre:"إذاعات مصاحف برواية حفص عن عاصم",country:"مصر",logo:"https://tvquran.com/uploads/authors/images/%D8%B3%D9%8A%D8%AF%20%D8%B1%D9%85%D8%B6%D8%A7%D9%86.jpg",url:"https://backup.qurango.net/radio/sayeed_ramadan",format:"mp3"},
+{name:"إذاعة صابر عبدالحكم- حفص عن عاصم",genre:"إذاعات مصاحف برواية حفص عن عاصم",country:"مصر",logo:"https://tvquran.com/uploads/authors/images/%D8%B5%D8%A7%D8%A8%D8%B1%20%D8%B9%D8%A8%D8%AF%20%D8%A7%D9%84%D8%AD%D9%83%D9%85.jpg",url:"https://backup.qurango.net/radio/saber_abdulhakm",format:"mp3"},
+{name:"إذاعة عبدالبارئ محمد- حفص عن عاصم",genre:"إذاعات مصاحف برواية حفص عن عاصم",country:"مصر",logo:"https://tvquran.com/uploads/authors/images/%D8%B9%D8%A8%D8%AF%20%D8%A7%D9%84%D8%A8%D8%A7%D8%B1%D8%A6%20%D9%85%D8%AD%D9%85%D8%AF.jpg",url:"https://backup.qurango.net/radio/abdulbari_mohammad",format:"mp3"},
+{name:"إذاعة عبدالباسط عبدالصمد- حفص عن عاصم",genre:"إذاعات مصاحف برواية حفص عن عاصم",country:"مصر",logo:"https://tvquran.com/uploads/authors/images/%D8%B9%D8%A8%D8%AF%20%D8%A7%D9%84%D8%A8%D8%A7%D8%B3%D8%B7%20%D8%B9%D8%A8%D8%AF%20%D8%A7%D9%84%D8%B5%D9%85%D8%AF.jpg",url:"https://backup.qurango.net/radio/abdulbasit_abdulsamad",format:"mp3"},
+{name:"إذاعة عبدالرحمن الشحات- حفص عن عاصم",genre:"إذاعات مصاحف برواية حفص عن عاصم",country:"مصر",logo:"https://ar.assabile.com/media/person/200x256/abderrahman-shahat.jpg",url:"https://backup.qurango.net/radio/a_alshahhat",format:"mp3"},
+{name:"إذاعة عبدالرشيد صوفي- خلف عن حمزة",genre:"إذاعات مصاحف برواية خلف عن حمزة ",country:"الصومال",logo:"https://tvquran.com/uploads/authors/images/%D8%B9%D8%A8%D8%AF%20%D8%A7%D9%84%D8%B1%D8%B4%D9%8A%D8%AF%20%D8%A8%D9%86%20%D8%B9%D9%84%D9%8A%20%D8%B5%D9%88%D9%81%D9%8A.jpg",url:"https://backup.qurango.net/radio/abdulrasheed_soufi_khalaf",format:"mp3"},
+{name:"إذاعة أحمد خضر الطرابلسي- قالون عن نافع",genre:"إذاعات مصاحف برواية قالون عن نافع",country:"الكويت",logo:"https://tvquran.com/uploads/authors/images/%D8%A3%D8%AD%D9%85%D8%AF%20%D8%AE%D8%B6%D8%B1%20%D8%A7%D9%84%D8%B7%D8%B1%D8%A7%D8%A8%D9%84%D8%B3%D9%8A.jpg",url:"https://backup.qurango.net/radio/ahmad_khader_altarabulsi",format:"mp3"},
+{name:"إذاعة الدوكالي محمد العالم- قالون عن نافع",genre:"إذاعات مصاحف برواية قالون عن نافع",country:"ليبيا",logo:"https://tvquran.com/uploads/authors/images/%D8%A7%D9%84%D8%AF%D9%88%D9%83%D8%A7%D9%84%D9%8A%20%D9%85%D8%AD%D9%85%D8%AF%20%D8%A7%D9%84%D8%B9%D8%A7%D9%84%D9%85.jpg",url:"https://backup.qurango.net/radio/addokali_mohammad_alalim",format:"mp3"},
+{name:"إذاعة طارق عبدالغني دعوب- قالون عن نافع",genre:"إذاعات مصاحف برواية قالون عن نافع",country:"ليبيا",logo:"https://tvquran.com/uploads/authors/images/author_default.png",url:"https://backup.qurango.net/radio/tareq_abdulgani_daawob",format:"mp3"},
+{name:"إذاعة وليد النائحي- قالون عن نافع من طريق أبي نشيط",genre:"إذاعات مصاحف برواية قالون عن نافع",country:"ليبيا",logo:"https://tvquran.com/uploads/authors/images/%D9%88%D9%84%D9%8A%D8%AF%20%D8%A7%D9%84%D9%86%D8%A7%D8%A6%D8%AD%D9%8A.jpg",url:"https://backup.qurango.net/radio/waleed_alnaehi",format:"mp3"},
+{name:"أذاعة محمد أبوسنينة- قالون عن نافع",genre:"إذاعات مصاحف برواية قالون عن نافع",country:"ليبيا",logo:"https://tvquran.com/uploads/authors/images/%D9%85%D8%AD%D9%85%D8%AF%20%D8%A3%D8%A8%D9%88%20%D8%B3%D9%86%D9%8A%D9%86%D8%A9.jpg",url:"https://backup.qurango.net/radio/sneineh",format:"mp3"},
+{name:"إذاعة محمد الأمين قنيوة- قالون عن نافع",genre:"إذاعات مصاحف برواية قالون عن نافع",country:"ليبيا",logo:"https://tvquran.com/uploads/authors/images/%D8%A7%D9%84%D8%A3%D9%85%D9%8A%D9%86%20%D9%85%D8%AD%D9%85%D8%AF%20%D9%82%D9%86%D9%8A%D9%88%D9%87.jpg",url:"https://backup.qurango.net/radio/qeniwa",format:"mp3"},
+{name:"إذاعة ياسر المزروعي - قراءة يعقوب الحضرمي بروايتي رويس وروح",genre:"إذاعات مصاحف برواية قرائ يعقوب الحضرمي",country:"الكويت",logo:"https://tvquran.com/uploads/authors/images/%D9%8A%D8%A7%D8%B3%D8%B1%20%D8%A7%D9%84%D9%85%D8%B2%D8%B1%D9%88%D8%B9%D9%8A.jpg",url:"https://backup.qurango.net/radio/yasser_almazroyee",format:"mp3"},
+{name:"إذاعة القارئ ياسين- ورش عن نافع",genre:"إذاعات مصاحف برواية ورش عن نافع",country:"الجزائر",logo:"https://tvquran.com/uploads/authors/images/%D9%8A%D8%A7%D8%B3%D9%8A%D9%86%20%D8%A7%D9%84%D8%AC%D8%B2%D8%A7%D8%A6%D8%B1%D9%8A.jpg",url:"https://backup.qurango.net/radio/alqaria_yassen",format:"mp3"},
+{name:"عبدالعزيز سحيم- ورش عن نافع",genre:"إذاعات مصاحف برواية ورش عن نافع",country:"الجزائر",logo:"https://scontent.fcmn1-2.fna.fbcdn.net/v/t39.30808-6/451550304_1032824038851017_3869120381841910434_n.jpg?_nc_cat=103&ccb=1-7&_nc_sid=6ee11a&_nc_eui2=AeGc3E52vmnpf5I4NPVUNpuAjWJaJxLg16SNYlonEuDXpGH99KLPcaD__2_IwZRkanU&_nc_ohc=X8aw2gk7me4Q7kNvgFC4Y94&_nc_zt=23&_nc_ht=scontent.fcmn1-2.fna&_nc_gid=AENy6cu3xQBm4P14_HX9rQI&oh=00_AYC3qoA8FJIv5DoUHCwgh_ugUb79TWrFm1qXChx_19mU9g&oe=6705B672",url:"https://backup.qurango.net/radio/a_sheim",format:"mp3"},
+{name:"إذاعة ابراهيم الدوسري- ورش عن نافع",genre:"إذاعات مصاحف برواية ورش عن نافع",country:"السعودية",logo:"https://tvquran.com/uploads/authors/images/%D8%A5%D8%A8%D8%B1%D8%A7%D9%87%D9%8A%D9%85%20%D8%A7%D9%84%D8%AF%D9%88%D8%B3%D8%B1%D9%8A.jpg",url:"https://backup.qurango.net/radio/ibrahim_aldosari",format:"mp3"},
+{name:"إذاعة محمد عبدالكريم- ورش عن نافع من طريق أبي بكر الأصبهاني",genre:"إذاعات مصاحف برواية ورش عن نافع",country:"السودان",logo:"https://tvquran.com/uploads/authors/images/%D9%85%D8%AD%D9%85%D8%AF%20%D8%B9%D8%A8%D8%AF%20%D8%A7%D9%84%D9%83%D8%B1%D9%8A%D9%85.jpg",url:"https://backup.qurango.net/radio/mohammad_abdullkarem_alasbahani",format:"mp3"},
+{name:"إذاعة عمر القزابري- ورش عن نافع",genre:"إذاعات مصاحف برواية ورش عن نافع",country:"المغرب",logo:"https://kazabri.com/wp-content/uploads/2022/03/logo-kazabri.png",url:"https://backup.qurango.net/radio/omar_alqazabri",format:"mp3"},
+{name:"إذاعة العيون الكوشي- ورش عن نافع",genre:"إذاعات مصاحف برواية ورش عن نافع",country:"المغرب",logo:"https://tvquran.com/uploads/authors/images/%D8%A7%D9%84%D8%B9%D9%8A%D9%88%D9%86%20%D8%A7%D9%84%D9%83%D9%88%D8%B4%D9%8A.jpg",url:"https://backup.qurango.net/radio/aloyoon_alkoshi",format:"mp3"},
+{name:"إذاعة محمود خليل الحصري- ورش عن نافع",genre:"إذاعات مصاحف برواية ورش عن نافع",country:"مصر",logo:"https://tvquran.com/uploads/authors/images/%D9%85%D8%AD%D9%85%D9%88%D8%AF%20%D8%AE%D9%84%D9%8A%D9%84%20%D8%A7%D9%84%D8%AD%D8%B5%D8%B1%D9%8A.jpg",url:"https://backup.qurango.net/radio/mahmoud_khalil_alhussary_warsh",format:"mp3"},
+{name:"إذاعة عبدالباسط عبدالصمد- ورش عن نافع",genre:"إذاعات مصاحف برواية ورش عن نافع",country:"مصر",logo:"https://tvquran.com/uploads/authors/images/%D8%B9%D8%A8%D8%AF%20%D8%A7%D9%84%D8%A8%D8%A7%D8%B3%D8%B7%20%D8%B9%D8%A8%D8%AF%20%D8%A7%D9%84%D8%B5%D9%85%D8%AF.jpg",url:"https://backup.qurango.net/radio/abdulbasit_abdulsamad_warsh",format:"mp3"},
+    
+    ];
+
+    const audioPlayer = document.getElementById('audioPlayer');
+    const playPauseBtn = document.getElementById('playPauseBtn');
+    const stopBtn = document.getElementById('stopBtn');
+    const muteBtn = document.getElementById('muteBtn');
+    const volumeControl = document.getElementById('volumeControl');
+    const nowPlaying = document.getElementById('nowPlaying');
+    const stationLogo = document.getElementById('stationLogo');
+    const playlist = document.getElementById('playlist');
+    const searchFilterForm = document.getElementById('searchFilterForm');
+    const searchName = document.getElementById('searchName');
+    const filterGenre = document.getElementById('filterGenre');
+    const filterCountry = document.getElementById('filterCountry');
+    const filterFormat = document.getElementById('filterFormat');
+    const resetFiltersBtn = document.getElementById('resetFilters');
+
+    let currentStation = null;
+    let filteredStations = [...stations];
+    let hls = null;
+
+    function renderPlaylist(stationsToRender) {
+      const fragment = document.createDocumentFragment();
+      stationsToRender.forEach((station, index) => {
+        const li = document.createElement('li');
+        li.className = 'list-group-item d-flex justify-content-between align-items-center station-item';
+        li.innerHTML = `
+          <img src="${station.logo}" alt="${station.name}" width="30" height="30" class="me-2">
+          <span>${station.name}</span>
+          <span class="badge bg-primary rounded-pill">${station.genre}</span>
+          <span class="badge bg-secondary rounded-pill">${station.country}</span>
+          <span class="badge bg-info rounded-pill">${station.format.toUpperCase()}</span>
+        `;
+        li.addEventListener('click', () => playStation(station));
+        fragment.appendChild(li);
+      });
+      playlist.innerHTML = '';
+      playlist.appendChild(fragment);
+    }
+
+    function playStation(station) {
+      if (currentStation) {
+        const currentStationElement = document.querySelector(`[data-station-name="${currentStation.name}"]`);
+        if (currentStationElement) {
+          currentStationElement.classList.remove('active-station');
+        }
+      }
+
+      currentStation = station;
+      nowPlaying.textContent = currentStation.name;
+      stationLogo.src = currentStation.logo;
+      stationLogo.alt = `شعار ${currentStation.name}`;
+
+      if (hls) {
+        hls.destroy();
+        hls = null;
+      }
+
+      if (station.format === 'm3u8') {
+        if (Hls.isSupported()) {
+          hls = new Hls();
+          hls.loadSource(station.url);
+          hls.attachMedia(audioPlayer);
+          hls.on(Hls.Events.MANIFEST_PARSED, function() {
+            audioPlayer.play();
+          });
+        } else if (audioPlayer.canPlayType('application/vnd.apple.mpegurl')) {
+          audioPlayer.src = station.url;
+          audioPlayer.addEventListener('loadedmetadata', function() {
+            audioPlayer.play();
+          });
+        }
+      } else {
+        audioPlayer.src = station.url;
+        audioPlayer.play();
+      }
+
+      playPauseBtn.innerHTML = '<i class="fas fa-pause"></i>';
+
+      const newCurrentStationElement = document.querySelector(`[data-station-name="${currentStation.name}"]`);
+      if (newCurrentStationElement) {
+        newCurrentStationElement.classList.add('active-station');
+      }
+    }
+
+    playPauseBtn.addEventListener('click', () => {
+      if (audioPlayer.paused) {
+        audioPlayer.play();
+        playPauseBtn.innerHTML = '<i class="fas fa-pause"></i>';
+      } else {
+        audioPlayer.pause();
+        playPauseBtn.innerHTML = '<i class="fas fa-play"></i>';
+      }
+    });
+
+    stopBtn.addEventListener('click', () => {
+      audioPlayer.pause();
+      audioPlayer.currentTime = 0;
+      playPauseBtn.innerHTML = '<i class="fas fa-play"></i>';
+    });
+
+    muteBtn.addEventListener('click', () => {
+      audioPlayer.muted = !audioPlayer.muted;
+      muteBtn.innerHTML = audioPlayer.muted ? '<i class="fas fa-volume-up"></i>' : '<i class="fas fa-volume-mute"></i>';
+    });
+
+    volumeControl.addEventListener('input', (e) => {
+      audioPlayer.volume = e.target.value;
+    });
+
+    function populateFilters() {
+      const genres = [...new Set(stations.map(station => station.genre))];
+      const countries = [...new Set(stations.map(station => station.country))];
+      const formats = [...new Set(stations.map(station => station.format))];
+
+      genres.forEach(genre => {
+        const option = document.createElement('option');
+        option.value = genre;
+        option.textContent = genre;
+        filterGenre.appendChild(option);
+      });
+
+      countries.forEach(country => {
+        const option = document.createElement('option');
+        option.value = country;
+        option.textContent = country;
+        filterCountry.appendChild(option);
+      });
+
+      formats.forEach(format => {
+        const option = document.createElement('option');
+        option.value = format;
+        option.textContent = format.toUpperCase();
+        filterFormat.appendChild(option);
+      });
+    }
+
+    searchFilterForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      applyFilters();
+    });
+
+    resetFiltersBtn.addEventListener('click', () => {
+      searchName.value = '';
+      filterGenre.value = '';
+      filterCountry.value = '';
+      filterFormat.value = '';
+      applyFilters();
+    });
+
+    function applyFilters() {
+      const nameFilter = searchName.value.toLowerCase();
+      const genreFilter = filterGenre.value;
+      const countryFilter = filterCountry.value;
+      const formatFilter = filterFormat.value;
+
+      filteredStations = stations.filter(station => {
+        return (
+          station.name.toLowerCase().includes(nameFilter) &&
+          (genreFilter === '' || station.genre === genreFilter) &&
+          (countryFilter === '' || station.country === countryFilter) &&
+          (formatFilter === '' || station.format === formatFilter)
+        );
+      });
+
+      renderPlaylist(filteredStations);
+    }
+
+    renderPlaylist(stations);
+    populateFilters();
+  </script>
+</body>
+</html>
